@@ -16,3 +16,8 @@ def signup():
 @route_bp.route("/home")
 def home():
     return render_template("home.html")
+
+
+@route_bp.route("/post")
+def post():
+    return render_template("post.html")
