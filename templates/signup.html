@@ -14,6 +14,51 @@
       crossorigin="anonymous"
     ></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+      $(document).ready(function () {
+        $("#signupForm").submit(function (e) {
+          e.preventDefault(); // form 기본 제출 방지
+
+          const name = $("#text").val();
+          const email = $("#email").val();
+          const password = $("#password").val();
+
+          // 입력값 검증 (프론트엔드)
+          if (!name || !email || !password) {
+            alert("모든 필드를 입력해주세요.");
+            return;
+          }
+
+          // 회원가입 요청
+          $.ajax({
+            url: "/auth/register", // Flask Blueprint 경로
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+              name: name,
+              email: email,
+              password: password,
+            }),
+            success: function (response) {
+              if (response.success) {
+                alert("회원가입이 완료되었습니다. 로그인해주세요.");
+                window.location.href = "/"; // 로그인 페이지로 redirect
+              } else {
+                alert("회원가입 실패: " + response.message);
+              }
+            },
+            error: function (xhr) {
+              const res = xhr.responseJSON;
+              if (res && res.message) {
+                alert("회원가입 실패: " + res.message);
+              } else {
+                alert("회원가입 요청 중 오류가 발생했습니다.");
+              }
+            },
+          });
+        });
+      });
+    </script>
     <title>Signup page</title>
   </head>
   <body>
@@ -33,7 +78,7 @@
         <div class="col-md-4">
           <h2 class="text-center mb-4">회원가입</h2>
 
-          <form>
+          <form id="signupForm">
             <div class="mb-3">
               <label for="text" class="form-label">닉네임</label>
               <input

@@ -34,7 +34,7 @@
         <div class="col-md-4">
           <h2 class="text-center mb-4">로그인</h2>
 
-          <form>
+          <form id="loginForm">
             <div class="mb-3">
               <label for="email" class="form-label">이메일</label>
               <input
@@ -68,5 +68,46 @@
       <span>아직 회원이 아니신가요? </span>
       <a href="/signup" class="text-primary fw-bold">회원가입</a>
     </div>
+    <script>
+      $(document).ready(function () {
+        $("#loginForm").submit(function (e) {
+          e.preventDefault(); // form 기본 제출 동작 방지
+
+          const email = $("#email").val();
+          const password = $("#password").val();
+
+          if (!email || !password) {
+            alert("이메일과 비밀번호를 입력해주세요.");
+            return;
+          }
+
+          $.ajax({
+            url: "/auth/login", // Flask Blueprint 경로 (실제 라우터에 맞게 조정)
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ email: email, password: password }),
+            xhrFields: {
+              withCredentials: true, // 쿠키를 클라이언트에 저장하기 위해 필요
+            },
+            success: function (response) {
+              if (response.success) {
+                alert("로그인 성공!");
+                window.location.href = "/home"; // 메인 페이지로 redirect
+              } else {
+                alert("로그인 실패: " + response.message);
+              }
+            },
+            error: function (xhr) {
+              const res = xhr.responseJSON;
+              if (res && res.message) {
+                alert("로그인 실패: " + res.message);
+              } else {
+                alert("로그인 요청 중 오류가 발생했습니다.");
+              }
+            },
+          });
+        });
+      });
+    </script>
   </body>
 </html>
