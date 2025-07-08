@@ -14,7 +14,7 @@
       crossorigin="anonymous"
     ></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <title>Login page</title>
+    <title>Signup page</title>
   </head>
   <body>
     <div class="container-fluid py-4">
@@ -28,13 +28,22 @@
         <h1 class="text-center display-4 mb-0">TIL JUNGLE</h1>
       </div>
     </div>
-
     <div class="container mt-3">
       <div class="row justify-content-center">
         <div class="col-md-4">
-          <h2 class="text-center mb-4">로그인</h2>
+          <h2 class="text-center mb-4">회원가입</h2>
 
           <form>
+            <div class="mb-3">
+              <label for="text" class="form-label">닉네임</label>
+              <input
+                type="text"
+                class="form-control"
+                id="text"
+                placeholder="닉네임 입력하세요"
+                required
+              />
+            </div>
             <div class="mb-3">
               <label for="email" class="form-label">이메일</label>
               <input
@@ -58,15 +67,11 @@
             </div>
 
             <button type="submit" class="btn btn-primary w-100 mt-4">
-              로그인
+              회원가입
             </button>
           </form>
         </div>
       </div>
-    </div>
-    <div class="text-center mt-4">
-      <span>아직 회원이 아니신가요? </span>
-      <a href="/signup" class="text-primary fw-bold">회원가입</a>
     </div>
   </body>
 </html>

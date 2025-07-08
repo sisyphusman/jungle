@@ -3,16 +3,14 @@ from pymongo import MongoClient
 
 from flask import Flask, render_template, jsonify, request
 from flask.json.provider import JSONProvider
+from route.route import route_bp
 
 import json
 import sys
 
 app = Flask(__name__)
 
-
-@app.route("/")
-def index():
-    return render_template("login.html")
+app.register_blueprint(route_bp)
 
 
 if __name__ == "__main__":
