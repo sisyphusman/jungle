@@ -10,7 +10,7 @@ class Config:
     MONGO_URI = os.environ.get(
         'MONGO_URI') or 'mongodb://localhost:27017/til_jungle'
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
-    LOG_LEVEL = os.environ.get('LOG_LEVEL') or 'DEBUG'
+    LOG_LEVEL = os.environ.get('LOG_LEVEL') or 'INFO'  # DEBUG -> INFO
     MONGO_MAX_POOL_SIZE = int(os.environ.get('MONGO_MAX_POOL_SIZE', '10'))
     MONGO_MIN_POOL_SIZE = int(os.environ.get('MONGO_MIN_POOL_SIZE', '1'))
 

@@ -5,8 +5,10 @@ import sys
 import atexit
 import logging
 
-# 로깅 설정 (안전하게)
-logging.basicConfig(level=getattr(logging, getattr(Config, 'LOG_LEVEL', 'DEBUG')))
+# 로깅 설정 (경고)
+logging.getLogger('pymongo').setLevel(logging.WARNING)
+# 기본 로깅 설정
+logging.basicConfig(level=logging.INFO)  # DEBUG -> INFO로 변경
 logger = logging.getLogger(__name__)
 
 class MongoDBConnection:
@@ -18,35 +20,24 @@ class MongoDBConnection:
         
     def connect(self):
         try:
-            # Config 검증
-            if hasattr(Config, 'validate_config'):
-                Config.validate_config()
+            logger.info("MongoDB 연결 시도...")
             
-            # MongoDB 연결 설정
+            # MongoDB 연결 설정 (간단하게)
             connection_params = {
                 'serverSelectionTimeoutMS': 5000,
                 'connectTimeoutMS': 5000
             }
             
-            # 추가 설정이 있다면 적용
-            if hasattr(Config, 'MONGO_MAX_POOL_SIZE'):
-                connection_params['maxPoolSize'] = Config.MONGO_MAX_POOL_SIZE
-            if hasattr(Config, 'MONGO_MIN_POOL_SIZE'):
-                connection_params['minPoolSize'] = Config.MONGO_MIN_POOL_SIZE
-            
             self.client = MongoClient(Config.MONGO_URI, **connection_params)
             
             # 연결 테스트
             self.client.admin.command('ping')
-            logger.info("MongoDB 연결 성공")
+            logger.info("✅ MongoDB 연결 성공")
             
             # 데이터베이스 및 컬렉션 설정
             self.db = self.client.til_jungle
             self.users_collection = self.db.users
             self.cards_collection = self.db.cards
-            
-            # 인덱스 생성
-            self._create_indexes()
             
             return True
             
@@ -57,26 +48,11 @@ class MongoDBConnection:
             logger.error(f"MongoDB 초기화 중 오류: {e}")
             return False
     
-    def _create_indexes(self):
-        """필수 인덱스 생성"""
-        try:
-            # users 컬렉션 인덱스
-            self.users_collection.create_index("email", unique=True)
-            
-            # cards 컬렉션 인덱스 (기존 posts 대신)
-            self.cards_collection.create_index("author_id")
-            self.cards_collection.create_index("tags")
-            self.cards_collection.create_index("created_at")
-            
-            logger.info("인덱스 생성 완료")
-            
-        except Exception as e:
-            logger.warning(f"인덱스 생성 실패: {e}")
-    
     def disconnect(self):
         if self.client:
             self.client.close()
             logger.info("MongoDB 연결 해제")
+
 
 # 전역 인스턴스
 mongo_db = MongoDBConnection()
