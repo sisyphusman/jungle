@@ -1,11 +1,13 @@
 from datetime import datetime
 from bson import ObjectId
+import requests
 from models.database import cards_collection
 from flask import Blueprint, jsonify, request
 from utils.auth_required import auth_required
 from utils.bs4_crawler import fetch_thumbnail
 from models.user import find_user_by_id
 from models.user import find_user_by_name
+import validators
 
 from utils.slack_helper import create_dm_conversation
 
@@ -110,6 +112,41 @@ def load_cards():
         return jsonify({"result": "error", "message": f"서버 에러: {str(e)}"})
 
 
+@card_bp.route("/validate_url", methods=['POST'])
+def validate_url():
+    data = request.get_json()
+    url = data.get('url')
+
+    if not url:
+        return jsonify({
+            "success": False,
+            "message": "URL을 입력해주세요"
+        }), 400
+
+    if not validators.url(url):
+        return jsonify({
+            "success": False,
+            "message": "유효한 URL 형식을 입력해주세요"
+        }), 400
+
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=5)
+        if response.status_code == 404 or response.status_code == 400:
+            return jsonify({
+                "success": False,
+                "message": "존재하지 않는 URL입니다"
+            }), 400
+    except requests.RequestException:
+        return jsonify({
+            "success": False,
+            "message": "URL 요청 중 오류가 발생했습니다"
+        }), 400
+
+    return jsonify({
+        "success": True,
+    })
+
+
 @card_bp.route("/post_card", methods=['POST'])
 @auth_required
 def post_card(current_user):
@@ -121,17 +158,14 @@ def post_card(current_user):
     if not title:
         return jsonify({
             "success": False,
-            "message": "Fail: 제목을 입력해주세요"
-        }), 400
-
-    if not til_url:
-        return jsonify({
-            "success": False,
-            "message": "Fail: 원본 링크를 등록해주세요"
+            "message": "제목을 입력해주세요"
         }), 400
 
     author_name = current_user.get('name', '익명')
     img = fetch_thumbnail(til_url)
+    if not img:
+        img = '/static/images/jungle_logo.png'
+
     today = datetime.today()
     date_str = today.strftime("%Y-%m-%d")
 
