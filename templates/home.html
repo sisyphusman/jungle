@@ -110,10 +110,6 @@
   <!-- bootstrap js -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-
-    <!-- bootstrap js -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
-
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
       <!-- 검색 JS -->
@@ -208,7 +204,6 @@
         }
       page += 1;
     }
-
     </script>
 
     <!-- 무한 스크롤 JS -->
@@ -289,6 +284,10 @@
       }
 
       $(document).on("click", ".card-clickable", function() {
+        const isLikeBtn = $(event.target).closest(".text-primary").length > 0;
+        if (isLikeBtn) {
+          return;
+        }
         const url = $(this).data("url");
         if (url) {
           window.open(url, "_blank");
@@ -298,34 +297,29 @@
       });
 
       $(document).on("click", ".text-primary", function() {
-      const cardId = $(this).data("id");
-      const likeCountSpan = $(this).siblings(".card-likes");
-        
-      $(document).on("click", ".text-primary", function() {
-      const cardId = $(this).data("id");
-      const likeCountSpan = $(this).siblings(".card-likes");
-        console.log("Clicked cardId:", cardId); // 디버깅용
+        const cardId = $(this).data("id");
+        const likeCountSpan = $(this).siblings(".card-likes");
 
-      $.ajax({
-        url: `/models/like_card/${cardId}`,
-        type: "POST",
-        xhrFields: { withCredentials: true }, 
-        success: function(response) {
-          if (response.success) {
-            likeCountSpan.text(response.likes);
-          } else {
-            alert("좋아요 실패: " + response.message);
-          }
-        },
-        error: function(xhr) {
-          const res = xhr.responseJSON;
-          if (res && res.message) {
-            alert("좋아요 실패: " + res.message);
-          } else {
-            alert("좋아요 요청 중 오류가 발생했습니다.");
-          }
-        },
-      });
+        $.ajax({
+          url: `/models/like_card/${cardId}`,
+          type: "POST",
+          xhrFields: { withCredentials: true }, 
+          success: function(response) {
+            if (response.success) {
+              likeCountSpan.text(response.likes);
+            } else {
+              alert("좋아요 실패: " + response.message);
+            }
+          },
+          error: function(xhr) {
+            const res = xhr.responseJSON;
+            if (res && res.message) {
+              alert("좋아요 실패: " + res.message);
+            } else {
+              alert("좋아요 요청 중 오류가 발생했습니다.");
+            }
+          },
+        });
     });
   })
     </script>
