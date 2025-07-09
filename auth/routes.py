@@ -41,6 +41,10 @@ def register():
         print(f"=== 토큰 디버깅 ===")
         print(f"Flask 앱 토큰: {Config.SLACK_BOT_TOKEN[:20]}...")
         
+        print(f"=== 토큰 디버깅 ===")
+        print(f"Config.SLACK_BOT_TOKEN: {Config.SLACK_BOT_TOKEN}")
+        print(f"토큰 길이: {len(Config.SLACK_BOT_TOKEN) if Config.SLACK_BOT_TOKEN else 0}")
+        print(f"토큰이 None인가? {Config.SLACK_BOT_TOKEN is None}")
         
         print(f"Slack 멤버 수: {len(slack_members) if slack_members else 0}")
         
