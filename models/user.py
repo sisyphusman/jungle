@@ -3,46 +3,8 @@ from bson import ObjectId
 from models.database import users_collection
 from utils.password_helper import hash_password, check_password
 
-# def create_user(name, email, password):
-#     """새 사용자 생성 (Slack 필드 포함)"""
-#     try:
-#         # 이메일 중복 확인
-#         if users_collection.find_one({"email": email}):
-#             return {"success": False, "message": "이미 존재하는 이메일입니다"}
 
-#         # 비밀번호 해싱
-#         hashed_password = hash_password(password)
-
-#         # 사용자 데이터 구성 (Slack 필드 추가)
-#         user_data = {
-#             "name": name,
-#             "email": email,
-#             "password": hashed_password,
-#             "created_at": datetime.utcnow(),
-#             "updated_at": datetime.utcnow(),
-#             # Slack 관련 필드들 (초기값은 None)
-#             "slack_user_id": None,
-#             "slack_team_id": None,
-#             "avatar_url": None,
-#             "slack_real_name": None,
-#             "slack_display_name": None,
-#             "slack_synced_at": None
-#         }
-
-#         # DB에 저장
-#         result = users_collection.insert_one(user_data)
-
-#         return {
-#             "success": True,
-#             "message": "회원가입 성공",
-#             "user_id": str(result.inserted_id)
-#         }
-
-#     except Exception as e:
-#         return {"success": False, "message": f"회원가입 실패: {str(e)}"}
-
-def create_user(name, email, password, slack_data=None):
-    """새 사용자 생성 (Slack 정보 선택적 포함)"""
+def create_user(name, email, password):
     try:
         # 이메일 중복 확인
         if users_collection.find_one({"email": email}):
@@ -51,7 +13,6 @@ def create_user(name, email, password, slack_data=None):
         # 비밀번호 해싱
         hashed_password = hash_password(password)
 
-        # 기본 사용자 데이터
         user_data = {
             "name": name,
             "email": email,
@@ -93,7 +54,6 @@ def create_user(name, email, password, slack_data=None):
 
     except Exception as e:
         return {"success": False, "message": f"회원가입 실패: {str(e)}"}
-
 
 
 def authenticate_user(email, password):
