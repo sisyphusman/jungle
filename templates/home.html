@@ -156,6 +156,11 @@
 
     for (let card of cards) {
       const cardHtml = `
+      <div class="col">
+                      <div class="d-flex justify-content-left mb-2">
+                      <button class="btn btn-sm btn-primary me-1">Week 0</button>
+                      <button class="btn btn-sm btn-success">질문하기</button>
+                    </div>
             <div class="col">
               <div class="card h-100 card-clickable" data-url="${card.url}">
                 <img
@@ -249,7 +254,9 @@
         } else {
           alert('질문방 생성 중 오류가 발생했습니다.');
         }
-      );
+      }
+  });
+}
 
       observer.observe(document.querySelector("#scroll-anchor"));
 

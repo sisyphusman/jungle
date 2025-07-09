@@ -55,7 +55,7 @@
           <a href="/home" class="btn btn-primary">
             <i class="fas fa-user me-2"></i>홈으로
           </a>
-          <a href="/post" class="btn btn-danger"> 로그아웃 </a>
+          <a id="logoutBtn" class="btn btn-danger"> 로그아웃 </a>
         </div>
       </div>
     </div>
@@ -201,8 +201,11 @@
       $("#logoutBtn").click(function () {
         if (confirm("정말 로그아웃하시겠습니까?")) {
           $.ajax({
-            url: "/auth/logout",
+            url: "/logout",
             type: "POST",
+            xhrFields: {
+              withCredentials: true,
+            },
             success: function (response) {
               if (response.success) {
                 alert("로그아웃되었습니다.");
