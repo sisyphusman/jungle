@@ -194,6 +194,8 @@ def like_card(current_user, card_id):
             "success": False,
             "message": f"좋아요 추가 실패: {str(e)}"
         }), 500
+
+
 @card_bp.route("/create-dm", methods=['POST'])
 @auth_required
 def create_dm_conversation_route(current_user):
@@ -203,17 +205,19 @@ def create_dm_conversation_route(current_user):
         data = request.get_json()
         card_id = data.get('card_id')
         author_name = data.get('author_name')  # 변경: author_id → author_name
-        
-        print(f"[DEBUG] DM 생성 요청: card_id={card_id}, author_name={author_name}")
-        print(f"[DEBUG] 질문자: {current_user['name']} (ID: {current_user['id']})")
-        
+
+        print(
+            f"[DEBUG] DM 생성 요청: card_id={card_id}, author_name={author_name}")
+        print(
+            f"[DEBUG] 질문자: {current_user['name']} (ID: {current_user['id']})")
+
         # 2. 필수 데이터 검증
         if not card_id or not author_name:
             return jsonify({
                 "success": False,
                 "message": "카드 ID와 작성자 이름이 필요합니다."
             }), 400
-        
+
         # 3. 작성자 정보 조회 (변경: find_user_by_id → find_user_by_name)
         author = find_user_by_name(author_name)
         if not author:
@@ -221,31 +225,33 @@ def create_dm_conversation_route(current_user):
                 "success": False,
                 "message": f"작성자 '{author_name}'을 찾을 수 없습니다."
             }), 404
-        
+
         print(f"[DEBUG] 작성자: {author['name']} (ID: {author['id']})")
-        
+
         # 4. Slack ID 확인
         questioner_slack_id = current_user.get('slack_user_id')
         author_slack_id = author.get('slack_user_id')
-        
+
         if not questioner_slack_id or not author_slack_id:
             return jsonify({
                 "success": False,
                 "message": "Slack 연동이 되지 않은 사용자입니다."
             }), 400
-        
-        print(f"[DEBUG] Slack IDs - 질문자: {questioner_slack_id}, 작성자: {author_slack_id}")
-        
+
+        print(
+            f"[DEBUG] Slack IDs - 질문자: {questioner_slack_id}, 작성자: {author_slack_id}")
+
         # 5. 자기 자신에게 질문하는 경우 방지
         if questioner_slack_id == author_slack_id:
             return jsonify({
                 "success": False,
                 "message": "자신에게는 질문할 수 없습니다."
             }), 400
-        
+
         # 6. Slack DM 채널 생성
-        dm_result = create_dm_conversation(questioner_slack_id, author_slack_id)
-        
+        dm_result = create_dm_conversation(
+            questioner_slack_id, author_slack_id)
+
         if dm_result['success']:
             return jsonify({
                 "success": True,
@@ -257,7 +263,7 @@ def create_dm_conversation_route(current_user):
                 "success": False,
                 "message": f"DM 생성 실패: {dm_result['message']}"
             }), 500
-            
+
     except Exception as e:
         print(f"[ERROR] DM 생성 중 오류: {str(e)}")
         return jsonify({

@@ -159,7 +159,8 @@
       <div class="col">
                       <div class="d-flex justify-content-left mb-2">
                       <button class="btn btn-sm btn-primary me-1">Week 0</button>
-                      <button class="btn btn-sm btn-success">질문하기</button>
+                      <button class="btn btn-sm btn-success"
+            onclick="askQuestion('${card._id}', '${card.author}')">질문하기</button>
                     </div>
             <div class="col">
               <div class="card h-100 card-clickable" data-url="${card.url}">
@@ -276,7 +277,8 @@
                     <div class="col">
                       <div class="d-flex justify-content-left mb-2">
                       <button class="btn btn-sm btn-primary me-1">Week 0</button>
-                      <button class="btn btn-sm btn-success">질문하기</button>
+                      <button class="btn btn-sm btn-success"
+            onclick="askQuestion('${card._id}', '${card.author}')">질문하기</button>
                     </div>
                   <div class="col">
                     <div class="card h-120 card-clickable" data-url="${card.url}">
