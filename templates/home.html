@@ -48,6 +48,8 @@
 
   <!-- 검색 JS -->
   <script>
+    let currentKeyword = '';
+
     document.getElementById('searchForm').addEventListener('submit', function (e) {
       e.preventDefault();
 
@@ -58,6 +60,8 @@
         return;
       }
 
+      currentKeyword = keyword
+
       $.ajax({
         url: "/models/load_cards",  // POST로 전송
         type: "POST",
@@ -67,6 +71,7 @@
           if (response.result === "success") {
             console.log("카드 검색 성공:", response.cards);
             renderCards(response.cards);
+            page = 2
           } else {
             alert("검색 실패: " + response.message);
           }
@@ -210,7 +215,7 @@
       function loadMoreCards() {
         $.ajax({
           type: "GET",
-          url: `/models/load_cards?page=${page}`,
+          url: `/models/load_cards?page=${page}&keyword=${encodeURIComponent(currentKeyword)}`,
           success: function (response) {
             if (response.result === "success") {
               const cards = response.cards;
