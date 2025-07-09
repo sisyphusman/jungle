@@ -8,5 +8,5 @@ if __name__ == "__main__":
         host='0.0.0.0', 
         port=5001, 
         debug=True,
-        ssl_context=('cert.pem', 'key.pem')  # SSL 인증서 사용
+        #ssl_context=('cert.pem', 'key.pem')  # SSL 인증서 사용
     )

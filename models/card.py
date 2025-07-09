@@ -12,8 +12,8 @@ def search_card(keyword):
     try:
         query = {
             "$or": [
-                {"tag_list": keyword},
-                {"title": {"$regex": keyword, "$options": "i"}}
+                { "tag_list": { "$regex": keyword, "$options": "i" } },
+                { "title": { "$regex": keyword, "$options": "i" } }
             ]
         }
 
