@@ -8,58 +8,6 @@ from config import Config
 
 auth_bp = Blueprint('auth', __name__)
 
-# @auth_bp.route('/register', methods=['POST'])
-# def register():
-#     """회원가입 API (Slack 자동 매칭)"""
-#     try:
-#         # JSON 또는 Form 데이터 받기
-#         if request.is_json:
-#             data = request.get_json()
-#         else:
-#             data = request.form
-
-#         name = data.get('name') or data.get('text')  # signup.html에서 id="text"
-#         email = data.get('email')
-#         password = data.get('password')
-
-#         # 입력값 검증
-#         if not all([name, email, password]):
-#             return jsonify({
-#                 'success': False,
-#                 'message': '모든 필드를 입력해주세요'
-#             }), 400
-
-#         # 1. Slack 멤버 최신화
-#         from utils.slack_helper import get_slack_members
-#         slack_members = get_slack_members()
-        
-#         # 2. 이메일로 Slack 멤버 찾기
-#         slack_data = None
-#         if slack_members:
-#             for member in slack_members:
-#                 if member['email'] == email:
-#                     slack_data = member
-#                     break
-
-#         # 3. 사용자 생성 (Slack 정보 포함 또는 제외)
-#         result = create_user(name, email, password, slack_data)
-
-#         if result['success']:
-#             print(f"사용자 생성 성공: {name} ({email})")
-#             if result.get('has_slack'):
-#                 print(f"  - Slack 정보 연동됨: {slack_data['slack_user_id']}")
-#             else:
-#                 print(f"  - 일반 회원가입 (Slack 정보 없음)")
-            
-#             return jsonify(result), 201
-#         else:
-#             return jsonify(result), 400
-
-#     except Exception as e:
-#         return jsonify({
-#             'success': False,
-#             'message': f'서버 오류: {str(e)}'
-#         }), 500
 @auth_bp.route('/register', methods=['POST'])
 def register():
     """회원가입 API (Slack 자동 매칭)"""
@@ -88,6 +36,11 @@ def register():
         # 1. Slack 멤버 최신화
         from utils.slack_helper import get_slack_members
         slack_members = get_slack_members()
+        
+        # 🔍 여기에 토큰 디버깅 코드 추가
+        print(f"=== 토큰 디버깅 ===")
+        print(f"Flask 앱 토큰: {Config.SLACK_BOT_TOKEN[:20]}...")
+        
         
         print(f"Slack 멤버 수: {len(slack_members) if slack_members else 0}")
         
