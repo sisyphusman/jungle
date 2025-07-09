@@ -1,7 +1,7 @@
 from functools import wraps
 from flask import request, jsonify, redirect, url_for, session
 from utils.jwt_helper import verify_token
-
+from models.user import find_user_by_id
 def auth_required(f):
     """JWT 토큰 또는 Slack 세션 인증이 필요한 라우트에 사용하는 데코레이터"""
     @wraps(f)
