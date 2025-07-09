@@ -1,4 +1,4 @@
-from bson import datetime
+from datetime import datetime
 from models.database import cards_collection
 from flask import Blueprint, jsonify, request
 from utils.auth_required import auth_required
@@ -120,13 +120,15 @@ def post_card(current_user):
 
     author_name = current_user.get('name', '익명')
     img = fetch_thumbnail(til_url)
+    today = datetime.today()
+    date_str = today.strftime("%Y-%m-%d")
 
     card_data = {
         "title": title,
         "author": author_name,
         "img": img,
         "tag_list": tag_list,
-        "date": "2025-테스트",
+        "date": date_str,
         "likes": 0,
         "url": til_url,
     }
