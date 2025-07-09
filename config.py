@@ -88,12 +88,13 @@ class Config:
     # 워크스페이스 고정 설정 (선택사항)
     SLACK_TEAM_ID = os.environ.get('SLACK_TEAM_ID')  # 정글 워크스페이스 ID (설정하면 해당 워크스페이스로 제한)
     SLACK_TEAM_NAME = os.environ.get('SLACK_TEAM_NAME', 'jungle-til')  # 워크스페이스 이름
-    
-    # 서버 설정
-    BASE_URL = os.environ.get('BASE_URL') or 'https://localhost:5001'
-    
-    # 워크스페이스 초대 링크 (실제 링크로 교체)
     SLACK_INVITE_URL = os.environ.get('SLACK_INVITE_URL') or 'https://join.slack.com/t/tiljungle/shared_invite/zt-38u2ezmh3-CB_Ij~WODym_T7sOpujeFA'
+
+
+    # 서버 설정
+    BASE_URL = os.environ.get('BASE_URL') or 'http://localhost:5001'
+    
+
 
     @staticmethod
     def validate_config():

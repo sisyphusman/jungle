@@ -14,51 +14,6 @@
       crossorigin="anonymous"
     ></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script>
-      $(document).ready(function () {
-        $("#signupForm").submit(function (e) {
-          e.preventDefault(); // form 기본 제출 방지
-
-          const name = $("#text").val();
-          const email = $("#email").val();
-          const password = $("#password").val();
-
-          // 입력값 검증 (프론트엔드)
-          if (!name || !email || !password) {
-            alert("모든 필드를 입력해주세요.");
-            return;
-          }
-
-          // 회원가입 요청
-          $.ajax({
-            url: "/auth/register", // Flask Blueprint 경로
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify({
-              name: name,
-              email: email,
-              password: password,
-            }),
-            success: function (response) {
-              if (response.success) {
-                alert("회원가입이 완료되었습니다. 로그인해주세요.");
-                window.location.href = "/"; // 로그인 페이지로 redirect
-              } else {
-                alert("회원가입 실패: " + response.message);
-              }
-            },
-            error: function (xhr) {
-              const res = xhr.responseJSON;
-              if (res && res.message) {
-                alert("회원가입 실패: " + res.message);
-              } else {
-                alert("회원가입 요청 중 오류가 발생했습니다.");
-              }
-            },
-          });
-        });
-      });
-    </script>
     <title>Signup page</title>
   </head>
   <body>
@@ -73,9 +28,21 @@
         <h1 class="text-center display-4 mb-0">TIL JUNGLE</h1>
       </div>
     </div>
+    
     <div class="container mt-3">
       <div class="row justify-content-center">
         <div class="col-md-4">
+          <!-- 워크스페이스 초대에서 온 경우 안내 메시지 -->
+          <div id="slackInviteNotice" class="alert alert-info mb-4" style="display: none;">
+            <h6 class="alert-heading">
+              <i class="fab fa-slack me-2"></i>워크스페이스 가입을 완료하셨나요?
+            </h6>
+            <p class="mb-0 small">
+              TIL Jungle을 완전히 사용하려면 <strong>워크스페이스와 동일한 이메일</strong>로 회원가입해주세요.
+              <br>이렇게 하면 질문하기 기능을 사용할 수 있습니다.
+            </p>
+          </div>
+
           <h2 class="text-center mb-4">회원가입</h2>
 
           <form id="signupForm">
@@ -85,7 +52,7 @@
                 type="text"
                 class="form-control"
                 id="text"
-                placeholder="닉네임 입력하세요"
+                placeholder="닉네임을 입력하세요"
                 required
               />
             </div>
@@ -98,6 +65,10 @@
                 placeholder="이메일을 입력하세요"
                 required
               />
+              <div class="form-text">
+                <i class="fas fa-info-circle me-1"></i>
+                Slack 워크스페이스와 동일한 이메일을 사용하면 질문하기 기능을 이용할 수 있습니다.
+              </div>
             </div>
 
             <div class="mb-3">
@@ -115,8 +86,106 @@
               회원가입
             </button>
           </form>
+          
+          <!-- 로그인 링크 -->
+          <div class="text-center mt-4">
+            <span>이미 계정이 있으신가요? </span>
+            <a href="/" class="text-primary fw-bold">로그인</a>
+          </div>
         </div>
       </div>
     </div>
+
+    <script>
+      $(document).ready(function () {
+        // URL 파라미터 확인해서 워크스페이스 초대에서 온 경우 안내 표시
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromWorkspace = urlParams.get('from') === 'workspace';
+        
+        if (fromWorkspace) {
+          $('#slackInviteNotice').show();
+        }
+
+        // 회원가입 폼 제출
+        $("#signupForm").submit(function (e) {
+          e.preventDefault(); // form 기본 제출 방지
+
+          const name = $("#text").val();
+          const email = $("#email").val();
+          const password = $("#password").val();
+
+          // 입력값 검증 (프론트엔드)
+          if (!name || !email || !password) {
+            alert("모든 필드를 입력해주세요.");
+            return;
+          }
+
+          // 로딩 상태 표시
+          const submitBtn = $(this).find('button[type="submit"]');
+          const originalText = submitBtn.html();
+          submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>가입 중...');
+          submitBtn.prop('disabled', true);
+
+          // 회원가입 요청
+          $.ajax({
+            url: "/auth/register", // Flask Blueprint 경로
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+              name: name,
+              email: email,
+              password: password,
+            }),
+            success: function (response) {
+              if (response.success) {
+                // 성공 시 Slack 정보 동기화 시도
+                syncSlackInfo(email, function() {
+                  alert("회원가입이 완료되었습니다. 로그인해주세요.");
+                  window.location.href = "/"; // 로그인 페이지로 redirect
+                });
+              } else {
+                alert("회원가입 실패: " + response.message);
+              }
+            },
+            error: function (xhr) {
+              const res = xhr.responseJSON;
+              if (res && res.message) {
+                alert("회원가입 실패: " + res.message);
+              } else {
+                alert("회원가입 요청 중 오류가 발생했습니다.");
+              }
+            },
+            complete: function() {
+              // 로딩 상태 해제
+              submitBtn.html(originalText);
+              submitBtn.prop('disabled', false);
+            }
+          });
+        });
+
+        // Slack 정보 동기화 함수
+        function syncSlackInfo(email, callback) {
+          $.ajax({
+            url: "/auth/sync-slack",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ email: email }),
+            success: function(response) {
+              if (response.success) {
+                console.log("Slack 정보 동기화 성공:", response.message);
+              } else {
+                console.log("Slack 정보 동기화 실패:", response.message);
+              }
+            },
+            error: function(xhr) {
+              console.log("Slack 동기화 요청 실패");
+            },
+            complete: function() {
+              if (callback) callback();
+            }
+          });
+        }
+      });
+    </script>
   </body>
 </html>
