@@ -252,8 +252,8 @@
               alert("좋아요 실패: " + response.message);
             }
           },
-          error: function () {
-            alert("좋아요 요청 중 오류가 발생했습니다.");
+          error: function (xhr) {
+            alert(xhr.responseJSON.message);
           },
         });
       });

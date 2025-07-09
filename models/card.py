@@ -1,11 +1,13 @@
 from datetime import datetime
 from bson import ObjectId
-from models.database import cards_collection,db
+from models.database import cards_collection, db
 from flask import Blueprint, jsonify, request
 from utils.auth_required import auth_required
 from utils.bs4_crawler import fetch_thumbnail
 from models.user import find_user_by_id
 from models.user import find_user_by_name
+import validators
+import requests
 
 from utils.slack_helper import create_dm_conversation
 
@@ -51,25 +53,109 @@ def search_card(keyword):
         }
 
 
+@card_bp.route("/validate_url", methods=['POST'])
+def validate_url():
+    data = request.get_json()
+    url = data.get('url')
+
+    if not url:
+        return jsonify({
+            "success": False,
+            "message": "URL을 입력해주세요"
+        }), 400
+
+    if not validators.url(url):
+        return jsonify({
+            "success": False,
+            "message": "유효한 URL 형식을 입력해주세요"
+        }), 400
+
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=5)
+        if response.status_code == 404 or response.status_code == 400:
+            return jsonify({
+                "success": False,
+                "message": "존재하지 않는 URL입니다"
+            }), 400
+    except requests.RequestException:
+        return jsonify({
+            "success": False,
+            "message": "URL 요청 중 오류가 발생했습니다"
+        }), 400
+
+    return jsonify({
+        "success": True,
+    })
+
+
 def get_cards(page):
     per_page = 12
-    skip_count = (page - 1) * per_page
-    cards_cursor = cards_collection.find().skip(skip_count).limit(per_page)
 
-    cards = []
-    for card in cards_cursor:
-        cards.append({
-            "_id": str(card.get("_id")),
-            "img": card.get("img", ""),
-            "title": card.get("title", ""),
-            "author": card.get("author", ""),
-            "tag_list": card.get("tag_list", []),
-            "date": card.get("date", ""),
-            "likes": card.get("likes", 0),
-            "url": card.get("url", "")
-        })
-        print(str(card.get("_id")))
-    return cards
+    if page == 1:
+        # 1. 좋아요 순 상위 4개 카드 가져오기
+        top_cards_cursor = cards_collection.find().sort("likes", -1).limit(4)
+        top_cards = []
+        top_card_ids = set()
+        for card in top_cards_cursor:
+            top_cards.append({
+                "_id": str(card.get("_id")),
+                "img": card.get("img", ""),
+                "title": card.get("title", ""),
+                "author": card.get("author", ""),
+                "tag_list": card.get("tag_list", []),
+                "date": card.get("date", ""),
+                "likes": card.get("likes", 0),
+                "url": card.get("url", "")
+            })
+            top_card_ids.add(card.get("_id"))
+
+        # 2. 이후 카드는 최신순으로 가져오되, top_cards에 포함된 카드는 제외
+        remaining_count = per_page - len(top_cards)
+        remaining_cards_cursor = cards_collection.find({
+            "_id": {"$nin": list(top_card_ids)}
+        }).sort("_id", -1).limit(remaining_count)
+
+        remaining_cards = []
+        for card in remaining_cards_cursor:
+            remaining_cards.append({
+                "_id": str(card.get("_id")),
+                "img": card.get("img", ""),
+                "title": card.get("title", ""),
+                "author": card.get("author", ""),
+                "tag_list": card.get("tag_list", []),
+                "date": card.get("date", ""),
+                "likes": card.get("likes", 0),
+                "url": card.get("url", "")
+            })
+
+        # 3. top_cards + remaining_cards 반환
+        return top_cards + remaining_cards
+
+    else:
+        # 페이지가 2 이상인 경우
+        skip_count = (page - 1) * per_page
+
+        # 페이지 2 이상에서는 항상 베스트 카드 제외
+        top_cards_cursor = cards_collection.find().sort("likes", -1).limit(4)
+        top_card_ids = [card.get("_id") for card in top_cards_cursor]
+
+        cards_cursor = cards_collection.find({
+            "_id": {"$nin": top_card_ids}
+        }).sort("_id", -1).skip(skip_count).limit(per_page)
+
+        cards = []
+        for card in cards_cursor:
+            cards.append({
+                "_id": str(card.get("_id")),
+                "img": card.get("img", ""),
+                "title": card.get("title", ""),
+                "author": card.get("author", ""),
+                "tag_list": card.get("tag_list", []),
+                "date": card.get("date", ""),
+                "likes": card.get("likes", 0),
+                "url": card.get("url", "")
+            })
+        return cards
 
 
 @card_bp.route("/load_cards", methods=["POST", "GET"])
@@ -174,21 +260,40 @@ def post_card(current_user):
 @auth_required
 def like_card(current_user, card_id):
     try:
+        card = cards_collection.find_one({"_id": ObjectId(card_id)})
+
+        if not card:
+            return jsonify({"success": False, "message": "카드를 찾을 수 없습니다."}), 404
+
+        if str(card.get("author_id")) == str(current_user['id']):
+            return jsonify({"success": False, "message": "본인 글은 추천할 수 없습니다."}), 400
+
+        user_id_str = str(current_user['id'])
+        liked_users = card.get("liked_users", [])
+
+        if user_id_str in liked_users:
+            return jsonify({"success": False, "message": "이미 좋아요를 누른 카드입니다."}), 400
+
         result = cards_collection.update_one(
             {"_id": ObjectId(card_id)},
-            {"$inc": {"likes": 1}}
+            {
+                "$inc": {"likes": 1},
+                "$addToSet": {"liked_users": user_id_str}
+            }
         )
+
         if result.matched_count == 0:
-            return jsonify({"success": False, "message": "카드를 찾을 수 없습니다."}),
-        404
+            return jsonify({"success": False, "message": "카드를 찾을 수 없습니다."}), 404
 
         # 업데이트 후 현재 좋아요 수 반환
-        card = cards_collection.find_one({"_id": ObjectId(card_id)})
+        updated_card = cards_collection.find_one({"_id": ObjectId(card_id)})
+
         return jsonify({
             "success": True,
             "message": "좋아요 추가 성공!",
-            "likes": card["likes"]
+            "likes": updated_card["likes"]
         })
+
     except Exception as e:
         return jsonify({
             "success": False,
@@ -231,9 +336,9 @@ def create_dm_conversation_route(current_user):
         card = cards_collection.find_one({"_id": ObjectId(card_id)})
         if not card:
             return jsonify({
-            "success": False,
-            "message": "카드를 찾을 수 없습니다."
-        }), 404
+                "success": False,
+                "message": "카드를 찾을 수 없습니다."
+            }), 404
 
         print(f"[DEBUG] 카드 제목: {card['title']}")
 
@@ -259,24 +364,24 @@ def create_dm_conversation_route(current_user):
 
         # 6. Slack DM 채널 생성
         dm_result = create_dm_conversation(
-            questioner_slack_id, 
+            questioner_slack_id,
             author_slack_id,
-            current_user['name'],  
-            author['name'],       
+            current_user['name'],
+            author['name'],
             card['title'],
-            card_id        
+            card_id
         )
 
         if dm_result['success']:
-        # Q&A 레코드 생성
+            # Q&A 레코드 생성
             from models.qna import create_qna_record
             qna_id = create_qna_record(
-                card_id, 
+                card_id,
                 dm_result.get('channel_id'),
                 current_user['name'],
                 author['name']
             )
-    
+
             return jsonify({
                 "success": True,
                 "message": "질문방이 생성되었습니다!",
@@ -307,7 +412,8 @@ def collect_conversation_route(current_user):
         card_id = data.get('card_id')
 
         print(f"[DEBUG] 대화 수집 요청: card_id={card_id}")
-        print(f"[DEBUG] 현재 사용자: {current_user['name']} (ID: {current_user['id']})")
+        print(
+            f"[DEBUG] 현재 사용자: {current_user['name']} (ID: {current_user['id']})")
 
         # 2. 필수 데이터 검증
         if not card_id:
@@ -359,8 +465,9 @@ def collect_conversation_route(current_user):
             author_slack_id = existing_conversation["author_slack_id"]
             questioner_name = existing_conversation["questioner_name"]
             author_name = existing_conversation["author_name"]
-            
-            print(f"[DEBUG] 기존 대화 발견 - 질문자: {questioner_name}({questioner_slack_id}), 작성자: {author_name}({author_slack_id})")
+
+            print(
+                f"[DEBUG] 기존 대화 발견 - 질문자: {questioner_name}({questioner_slack_id}), 작성자: {author_name}({author_slack_id})")
         else:
             # 새로운 대화인 경우 → 현재 사용자가 질문자
             if current_user_slack_id == author_slack_id:
@@ -368,15 +475,16 @@ def collect_conversation_route(current_user):
                     "success": False,
                     "message": "본인이 작성한 포스팅입니다. 질문하기를 먼저 사용해주세요."
                 }), 400
-            
+
             questioner_slack_id = current_user_slack_id
             questioner_name = current_user['name']
-            
-            print(f"[DEBUG] 새 대화 - 질문자: {questioner_name}({questioner_slack_id}), 작성자: {author_name}({author_slack_id})")
+
+            print(
+                f"[DEBUG] 새 대화 - 질문자: {questioner_name}({questioner_slack_id}), 작성자: {author_name}({author_slack_id})")
 
         # 7. DM 채널 찾기
         from utils.slack_helper import find_dm_channel, collect_conversation_history, extract_conversation_by_card, format_conversation_messages
-        
+
         channel_id = find_dm_channel(questioner_slack_id, author_slack_id)
         if not channel_id:
             return jsonify({
@@ -388,17 +496,19 @@ def collect_conversation_route(current_user):
 
         # 8. Slack에서 대화 수집
         all_messages = collect_conversation_history(channel_id)
-        card_specific_messages = extract_conversation_by_card(all_messages, card_id)
+        card_specific_messages = extract_conversation_by_card(
+            all_messages, card_id)
         formatted_messages = format_conversation_messages(
             card_specific_messages, questioner_slack_id, author_slack_id
         )
 
-        print(f"[DEBUG] 수집 결과 - 전체: {len(all_messages)}, 카드별: {len(card_specific_messages)}, 포맷됨: {len(formatted_messages)}")
+        print(
+            f"[DEBUG] 수집 결과 - 전체: {len(all_messages)}, 카드별: {len(card_specific_messages)}, 포맷됨: {len(formatted_messages)}")
 
         # 9. 🔥 대화 영구 저장 (올바른 질문자/작성자 정보 사용)
         if formatted_messages:
             from models.conversation import save_conversation
-            
+
             save_result = save_conversation(
                 card_id=card_id,
                 channel_id=channel_id,
@@ -456,9 +566,9 @@ def get_conversation_detail(current_user, conversation_id):
     """특정 대화 상세 조회"""
     try:
         from models.conversation import get_conversation_by_id
-        
+
         conversation = get_conversation_by_id(conversation_id)
-        
+
         if conversation:
             return jsonify({
                 "success": True,
@@ -469,13 +579,13 @@ def get_conversation_detail(current_user, conversation_id):
                 "success": False,
                 "message": "대화를 찾을 수 없습니다."
             }), 404
-            
+
     except Exception as e:
         return jsonify({
             "success": False,
             "message": f"대화 조회 실패: {str(e)}"
         }), 500
-    
+
 
 @card_bp.route("/conversation/<conversation_id>/publish", methods=['POST'])
 @auth_required
@@ -483,9 +593,9 @@ def publish_conversation_route(current_user, conversation_id):
     """대화를 Q&A 게시판에 공개"""
     try:
         from models.conversation import publish_conversation
-        
+
         result = publish_conversation(conversation_id)
-        
+
         if result["success"]:
             return jsonify({
                 "success": True,
@@ -497,12 +607,10 @@ def publish_conversation_route(current_user, conversation_id):
                 "success": False,
                 "message": result.get("message", "공개 실패")
             }), 500
-            
+
     except Exception as e:
         print(f"[ERROR] 공개 처리 실패: {str(e)}")
         return jsonify({
             "success": False,
             "message": f"공개 처리 실패: {str(e)}"
         }), 500
-    
-
