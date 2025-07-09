@@ -32,11 +32,12 @@ def create_app():
 
     # 현재 실제로 사용하는 Blueprint만 등록
     from route.route import route_bp
-
     app.register_blueprint(route_bp)
 
-    # 나중에 필요할 때 추가
     from auth.routes import auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
+
+    from models.card import card_bp
+    app.register_blueprint(card_bp, url_prefix='/models')
 
     return app

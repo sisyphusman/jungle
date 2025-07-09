@@ -27,7 +27,7 @@ def signup():
 
 @route_bp.route("/home")
 def home():
-    cards = get_cards()
+    cards = get_cards(1)
     return render_template("home.html", cards=cards)
 
 # 임시로 인증 없이 접속 가능
