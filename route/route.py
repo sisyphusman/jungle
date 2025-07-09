@@ -1,8 +1,5 @@
 from flask import Blueprint, render_template
-# from utils.auth_required import auth_required  # 임시 주석
-
-
-from models.card import get_cards
+from utils.auth_required import auth_required
 
 route_bp = Blueprint('route', __name__)
 
