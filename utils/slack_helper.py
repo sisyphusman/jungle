@@ -138,3 +138,90 @@ def sync_slack_to_users():
         error_message = f"Slack 동기화 실패: {str(e)}"
         logger.error(error_message)
         return {"success": False, "message": error_message}
+    
+
+
+def create_dm_conversation(user1_slack_id, user2_slack_id):
+    """두 사용자 간 DM 채널 생성"""
+    try:
+        url = "https://slack.com/api/conversations.open"
+        headers = {
+            "Authorization": f"Bearer {Config.SLACK_BOT_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        # 두 사용자의 Slack ID를 쉼표로 구분하여 전송
+        payload = {
+            "users": f"{user1_slack_id},{user2_slack_id}"
+        }
+        
+        print(f"[DEBUG] Slack API 호출 - users: {payload['users']}")
+        
+        response = requests.post(url, json=payload, headers=headers)
+        data = response.json()
+        
+        print(f"[DEBUG] Slack API 응답: {data}")
+        
+        if data.get('ok'):
+            channel_id = data['channel']['id']
+            logger.info(f"DM 채널 생성 성공: {channel_id}")
+            
+            # 환영 메시지 발송 (선택사항)
+            send_welcome_message(channel_id)
+            
+            return {
+                "success": True,
+                "message": "DM 채널 생성 완료",
+                "channel_id": channel_id
+            }
+        else:
+            error_msg = data.get('error', 'Unknown error')
+            logger.error(f"DM 채널 생성 실패: {error_msg}")
+            return {
+                "success": False,
+                "message": f"Slack API 오류: {error_msg}"
+            }
+            
+    except Exception as e:
+        logger.error(f"DM 채널 생성 중 오류: {str(e)}")
+        return {
+            "success": False,
+            "message": f"서버 오류: {str(e)}"
+        }
+
+
+def send_welcome_message(channel_id):
+    """DM 채널에 환영 메시지 발송"""
+    try:
+        url = "https://slack.com/api/chat.postMessage"
+        headers = {
+            "Authorization": f"Bearer {Config.SLACK_BOT_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "channel": channel_id,
+            "text": "👋 안녕하세요! TIL Jungle 질문방이 생성되었습니다. 궁금한 점을 자유롭게 물어보세요!"
+        }
+        
+        response = requests.post(url, json=payload, headers=headers)
+        data = response.json()
+        
+        if data.get('ok'):
+            logger.info("환영 메시지 발송 성공")
+        else:
+            logger.warning(f"환영 메시지 발송 실패: {data.get('error')}")
+            
+    except Exception as e:
+        logger.error(f"환영 메시지 발송 중 오류: {str(e)}")
+
+
+def test_dm_creation():
+    """DM 생성 테스트 함수 (개발용)"""
+    # 테스트용 사용자 ID들 (실제 워크스페이스의 사용자 ID로 변경)
+    test_user1 = "U094NS7Q535"  # 실제 사용자 ID로 변경
+    test_user2 = "U094WG67NFN"  # 실제 사용자 ID로 변경
+    
+    result = create_dm_conversation(test_user1, test_user2)
+    print(f"테스트 결과: {result}")
+    return result

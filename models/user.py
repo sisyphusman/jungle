@@ -105,6 +105,27 @@ def find_user_by_id(user_id):
         print(f"사용자 조회 실패: {e}")
         return None
 
+def find_user_by_name(name):
+    """이름으로 사용자 찾기 (Slack 정보 포함)"""
+    try:
+        user = users_collection.find_one({"name": name})
+        if user:
+            return {
+                "id": str(user["_id"]),
+                "name": user["name"],
+                "email": user["email"],
+                "created_at": user["created_at"],
+                "avatar_url": user.get("avatar_url"),
+                "slack_user_id": user.get("slack_user_id"),
+                "slack_team_id": user.get("slack_team_id"),
+                "slack_real_name": user.get("slack_real_name"),
+                "slack_display_name": user.get("slack_display_name")
+            }
+        return None
+
+    except Exception as e:
+        print(f"이름으로 사용자 조회 실패: {e}")
+        return None
 
 def find_user_by_email(email):
     """이메일로 사용자 찾기 (Slack 정보 포함)"""
