@@ -249,25 +249,30 @@
         } else {
           alert('질문방 생성 중 오류가 발생했습니다.');
         }
-      }
-    });
-  }
+      );
 
-  function loadMoreCards() {
-    $.ajax({
-      type: "GET",
-      url: `/models/load_cards?page=${page}&keyword=${encodeURIComponent(currentKeyword)}`,
-      success: function (response) {
-        if (response.result === "success") {
-          const cards = response.cards;
-          if (cards.length === 0) {
-            observer.disconnect();
-            return;
-          }
-          for (let card of cards) {
-            const cardHtml = `
+      observer.observe(document.querySelector("#scroll-anchor"));
+
+      function loadMoreCards() {
+        $.ajax({
+          type: "GET",
+          url: `/models/load_cards?page=${page}&keyword=${encodeURIComponent(currentKeyword)}`,
+          success: function (response) {
+            if (response.result === "success") {
+              const cards = response.cards;
+              if (cards.length === 0) {
+                observer.disconnect();
+                return;
+              }
+              for (let card of cards) {
+                const cardHtml = `
+                    <div class="col">
+                      <div class="d-flex justify-content-left mb-2">
+                      <button class="btn btn-sm btn-primary me-1">Week 0</button>
+                      <button class="btn btn-sm btn-success">질문하기</button>
+                    </div>
                   <div class="col">
-                    <div class="card h-100 card-clickable" data-url="${card.url}">
+                    <div class="card h-120 card-clickable" data-url="${card.url}">
                       <img
                         src="${card.img}"
                         class="card-img-top"
