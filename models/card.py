@@ -1,13 +1,11 @@
 from datetime import datetime
 from bson import ObjectId
-import requests
-from models.database import cards_collection
+from models.database import cards_collection,db
 from flask import Blueprint, jsonify, request
 from utils.auth_required import auth_required
 from utils.bs4_crawler import fetch_thumbnail
 from models.user import find_user_by_id
 from models.user import find_user_by_name
-import validators
 
 from utils.slack_helper import create_dm_conversation
 
@@ -112,41 +110,6 @@ def load_cards():
         return jsonify({"result": "error", "message": f"서버 에러: {str(e)}"})
 
 
-@card_bp.route("/validate_url", methods=['POST'])
-def validate_url():
-    data = request.get_json()
-    url = data.get('url')
-
-    if not url:
-        return jsonify({
-            "success": False,
-            "message": "URL을 입력해주세요"
-        }), 400
-
-    if not validators.url(url):
-        return jsonify({
-            "success": False,
-            "message": "유효한 URL 형식을 입력해주세요"
-        }), 400
-
-    try:
-        response = requests.head(url, allow_redirects=True, timeout=5)
-        if response.status_code == 404 or response.status_code == 400:
-            return jsonify({
-                "success": False,
-                "message": "존재하지 않는 URL입니다"
-            }), 400
-    except requests.RequestException:
-        return jsonify({
-            "success": False,
-            "message": "URL 요청 중 오류가 발생했습니다"
-        }), 400
-
-    return jsonify({
-        "success": True,
-    })
-
-
 @card_bp.route("/post_card", methods=['POST'])
 @auth_required
 def post_card(current_user):
@@ -158,14 +121,17 @@ def post_card(current_user):
     if not title:
         return jsonify({
             "success": False,
-            "message": "제목을 입력해주세요"
+            "message": "Fail: 제목을 입력해주세요"
+        }), 400
+
+    if not til_url:
+        return jsonify({
+            "success": False,
+            "message": "Fail: 원본 링크를 등록해주세요"
         }), 400
 
     author_name = current_user.get('name', '익명')
     img = fetch_thumbnail(til_url)
-    if not img:
-        img = '/static/images/jungle_logo.png'
-
     today = datetime.today()
     date_str = today.strftime("%Y-%m-%d")
 
@@ -208,14 +174,6 @@ def post_card(current_user):
 @auth_required
 def like_card(current_user, card_id):
     try:
-        card = cards_collection.find_one({"_id": ObjectId(card_id)})
-
-        if not card:
-            return jsonify({"success": False, "message": "카드를 찾을 수 없습니다."}), 404
-
-        if str(card.get("author_id")) == str(current_user['id']):
-            return jsonify({"success": False, "message": "본인 글은 추천할 수 없습니다."}), 400
-
         result = cards_collection.update_one(
             {"_id": ObjectId(card_id)},
             {"$inc": {"likes": 1}}
@@ -226,7 +184,6 @@ def like_card(current_user, card_id):
 
         # 업데이트 후 현재 좋아요 수 반환
         card = cards_collection.find_one({"_id": ObjectId(card_id)})
-
         return jsonify({
             "success": True,
             "message": "좋아요 추가 성공!",
@@ -343,7 +300,7 @@ def create_dm_conversation_route(current_user):
 @card_bp.route("/collect-conversation", methods=['POST'])
 @auth_required
 def collect_conversation_route(current_user):
-    """대화 수집 및 영구 저장"""
+    """대화 수집 및 영구 저장 (역할 자동 감지)"""
     try:
         # 1. 요청 데이터 파싱
         data = request.get_json()
@@ -377,19 +334,47 @@ def collect_conversation_route(current_user):
                 "message": f"작성자 '{author_name}'을 찾을 수 없습니다."
             }), 404
 
-        # 5. Slack ID 확인
-        questioner_slack_id = current_user.get('slack_user_id')
+        # 5. 🔥 역할 자동 감지: 현재 사용자가 질문자인지 작성자인지 판단
+        current_user_slack_id = current_user.get('slack_user_id')
         author_slack_id = author.get('slack_user_id')
 
-        if not questioner_slack_id or not author_slack_id:
+        if not current_user_slack_id or not author_slack_id:
             return jsonify({
                 "success": False,
                 "message": "Slack 연동이 되지 않은 사용자입니다."
             }), 400
 
-        print(f"[DEBUG] Slack IDs - 질문자: {questioner_slack_id}, 작성자: {author_slack_id}")
+        # 6. 🔥 기존 대화 세션에서 실제 질문자/작성자 찾기
+        existing_conversation = db.conversations.find_one({
+            "card_id": card_id,
+            "$or": [
+                {"questioner_slack_id": current_user_slack_id},
+                {"author_slack_id": current_user_slack_id}
+            ]
+        })
 
-        # 6. DM 채널 찾기
+        if existing_conversation:
+            # 기존 대화가 있는 경우 → 실제 질문자/작성자 사용
+            questioner_slack_id = existing_conversation["questioner_slack_id"]
+            author_slack_id = existing_conversation["author_slack_id"]
+            questioner_name = existing_conversation["questioner_name"]
+            author_name = existing_conversation["author_name"]
+            
+            print(f"[DEBUG] 기존 대화 발견 - 질문자: {questioner_name}({questioner_slack_id}), 작성자: {author_name}({author_slack_id})")
+        else:
+            # 새로운 대화인 경우 → 현재 사용자가 질문자
+            if current_user_slack_id == author_slack_id:
+                return jsonify({
+                    "success": False,
+                    "message": "본인이 작성한 포스팅입니다. 질문하기를 먼저 사용해주세요."
+                }), 400
+            
+            questioner_slack_id = current_user_slack_id
+            questioner_name = current_user['name']
+            
+            print(f"[DEBUG] 새 대화 - 질문자: {questioner_name}({questioner_slack_id}), 작성자: {author_name}({author_slack_id})")
+
+        # 7. DM 채널 찾기
         from utils.slack_helper import find_dm_channel, collect_conversation_history, extract_conversation_by_card, format_conversation_messages
         
         channel_id = find_dm_channel(questioner_slack_id, author_slack_id)
@@ -401,7 +386,7 @@ def collect_conversation_route(current_user):
 
         print(f"[DEBUG] DM 채널 ID: {channel_id}")
 
-        # 7. Slack에서 대화 수집
+        # 8. Slack에서 대화 수집
         all_messages = collect_conversation_history(channel_id)
         card_specific_messages = extract_conversation_by_card(all_messages, card_id)
         formatted_messages = format_conversation_messages(
@@ -410,7 +395,7 @@ def collect_conversation_route(current_user):
 
         print(f"[DEBUG] 수집 결과 - 전체: {len(all_messages)}, 카드별: {len(card_specific_messages)}, 포맷됨: {len(formatted_messages)}")
 
-        # 8. 🔥 새로 추가: 대화 영구 저장
+        # 9. 🔥 대화 영구 저장 (올바른 질문자/작성자 정보 사용)
         if formatted_messages:
             from models.conversation import save_conversation
             
@@ -419,20 +404,20 @@ def collect_conversation_route(current_user):
                 channel_id=channel_id,
                 questioner_slack_id=questioner_slack_id,
                 author_slack_id=author_slack_id,
-                questioner_name=current_user['name'],
-                author_name=author['name'],
+                questioner_name=questioner_name,
+                author_name=author_name,
                 post_title=card.get('title', '제목 없음'),
                 messages=formatted_messages
             )
 
-            # 9. 성공 응답 (저장 정보 포함)
+            # 10. 성공 응답
             return jsonify({
                 "success": True,
                 "conversation": formatted_messages,
                 "storage": {
                     "saved": save_result["success"],
                     "conversation_id": save_result.get("conversation_id"),
-                    "action": save_result.get("action"),  # created or updated
+                    "action": save_result.get("action"),
                     "version": save_result.get("version"),
                     "message_count": save_result.get("message_count")
                 },
@@ -440,7 +425,9 @@ def collect_conversation_route(current_user):
                     "total_messages": len(all_messages),
                     "card_specific_messages": len(card_specific_messages),
                     "formatted_message_count": len(formatted_messages),
-                    "channel_id": channel_id
+                    "channel_id": channel_id,
+                    "questioner": questioner_name,
+                    "author": author_name
                 }
             })
         else:
@@ -461,6 +448,7 @@ def collect_conversation_route(current_user):
             "success": False,
             "message": f"서버 오류: {str(e)}"
         }), 500
+
 
 @card_bp.route("/conversation/<conversation_id>", methods=['GET'])
 @auth_required
