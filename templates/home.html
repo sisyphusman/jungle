@@ -13,19 +13,32 @@
   <script src="https://kit.fontawesome.com/3ea215d505.js" crossorigin="anonymous"></script>
 
   <title>Main Page</title>
+
+  <style>
+    .card {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+    }
+  </style>
 </head>
 
 <body>
-  <div class="container py-4 mt-3">
-    <div class="d-flex justify-content-center align-items-center">
-      <div class="mx-auto d-flex align-items-center">
+  <div class="container py-4 mt-3 position-relative">
+    <div class="text-center">
+      <div class="d-inline-flex align-items-center">
         <img src="{{ url_for('static', filename='/images/jungle_logo.png')}}" alt="정글 이미지 로고" style="height: 60px"
           class="me-3" />
         <h1 class="text-center display-4 mb-0">TIL JUNGLE</h1>
       </div>
-      <div class="d-flex gap-2 me-5">
-        <a href="/mypage" class="btn btn-info">
-          <i class="fas fa-user me-1"></i>마이페이지
+      <div class="position-absolute top-0 end-0 mt-5 me-5">
+        <a href="/mypage" class="btn btn-warning me-1">
+          <i class="fas fa-user me-2"></i>마이페이지
         </a>
         <a href="/post" class="btn btn-success">
           <i class="fas fa-plus me-1"></i>TIL 생성
@@ -41,7 +54,7 @@
         <input type="text" class="form-control" placeholder="제목 혹은 태그 검색" id="tagSearchInput" name="tag" />
       </div>
       <div class="col-auto">
-        <button type="submit" class="btn btn-primary">검색</button>
+        <button type="submit" class="btn btn-success">검색</button>
       </div>
     </form>
   </div>
@@ -142,14 +155,14 @@
 </script>
 
     <!-- 카드 리스트 -->
-    <div class="container mt-4">
+    <div class="container mt-5">
       <div
         class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4"
         id="card-list"
       >
         {% for card in cards %}
         <div class="col">
-          <div class="card h-100">
+          <div class="card h-100 card-clickable" data-url="{{ card.url }}">
             <img
               src="{{ card.img }}"
               class="card-img-top"
@@ -195,6 +208,101 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
+      <!-- 검색 JS -->
+      <script>
+        let currentKeyword = '';
+
+        document.getElementById('searchForm').addEventListener('submit', function (e) {
+          e.preventDefault();
+
+          const keyword = document.getElementById('tagSearchInput').value;
+
+          if (keyword.trim() === '') {
+            alert('검색어를 입력해주세요.');
+            return;
+          }
+
+          currentKeyword = keyword
+
+          $.ajax({
+            url: "/models/load_cards",  // POST로 전송
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ keyword: keyword }),
+            success: function (response) {
+              if (response.result === "success") {
+                console.log("카드 검색 성공:", response.cards);
+                renderCards(response.cards);
+                page = 2
+              } else {
+                alert("검색 실패: " + response.message);
+              }
+            },
+            error: function (xhr, status, error) {
+              alert("에러 발생: " + error);
+            }
+          });
+        });
+        
+      // 카드 검색시 render하는 함수
+      
+      function renderCards(cards) {
+        const cardList = document.getElementById("card-list");
+        cardList.innerHTML = "";  // 기존 카드 삭제
+
+        if (cards.length === 0) {
+          cardList.innerHTML = "<p class='text-center'>검색 결과가 없습니다.</p>";
+          return;
+        }
+
+        for (let card of cards) {
+            const cardHtml = `
+            <div class="col">
+              <div class="card h-100 card-clickable" data-url="${card.url}">
+                <img
+                  src="${card.img}"
+                  class="card-img-top"
+                  style="height: 160px; object-fit: cover"
+                  alt="카드 이미지"
+                />
+                <div class="card-body d-flex flex-column">
+                  <h5 class="card-title" style="overflow-wrap: break-word">
+                    ${card.title}
+                  </h5>
+
+                  <p class="card-text mb-1 text-muted">by ${
+                    card.author
+                  }</p>
+
+                  <p class="card-text">
+                    ${card.tag_list
+                      .map(
+                        (tag) =>
+                          `<span class="badge bg-secondary">${tag}</span>`
+                      )
+                      .join(" ")}
+                  </p>
+
+                  <div class="mt-auto d-flex justify-content-between align-items-center">
+                    <small class="text-muted">${card.date}</small>
+                    <div class="like-btn">
+                      <span class="text-primary" data-id="${card._id}">
+                        <i class="fas fa-thumbs-up"></i>
+                      </span>
+                      <span class="card-likes">${card.likes}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          $("#card-list").append(cardHtml);
+        }
+      page += 1;
+    }
+
+    </script>
+
     <!-- 무한 스크롤 JS -->
     <script>
       let page = 2;
@@ -226,7 +334,7 @@
               for (let card of cards) {
                 const cardHtml = `
                   <div class="col">
-                    <div class="card h-100">
+                    <div class="card h-100 card-clickable" data-url="${card.url}">
                       <img
                         src="${card.img}"
                         class="card-img-top"
@@ -272,6 +380,19 @@
         });
       }
 
+      $(document).on("click", ".card-clickable", function() {
+        const url = $(this).data("url");
+        if (url) {
+          window.open(url, "_blank");
+        } else {
+          alert("url을 찾을 수 없습니다.")
+        }
+      });
+
+      $(document).on("click", ".text-primary", function() {
+      const cardId = $(this).data("id");
+      const likeCountSpan = $(this).siblings(".card-likes");
+        
       $(document).on("click", ".text-primary", function() {
       const cardId = $(this).data("id");
       const likeCountSpan = $(this).siblings(".card-likes");

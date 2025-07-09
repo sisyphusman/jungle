@@ -30,7 +30,9 @@ def search_card(keyword):
                 "author": card.get("author", ""),
                 "tag_list": card.get("tag_list", []),
                 "date": card.get("date", ""),
-                "likes": card.get("likes", 0)
+                "likes": card.get("likes", 0),
+                "url": card.get("url", "")
+
             })
             print(str(card.get("_id")))
 
@@ -60,7 +62,8 @@ def get_cards(page):
             "author": card.get("author", ""),
             "tag_list": card.get("tag_list", []),
             "date": card.get("date", ""),
-            "likes": card.get("likes", 0)
+            "likes": card.get("likes", 0),
+            "url": card.get("url", "")
         })
         print(str(card.get("_id")))
     return cards
