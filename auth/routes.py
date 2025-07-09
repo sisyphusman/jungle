@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, make_response, redirect, url_for, session
 from models.user import (
-    create_user, authenticate_user
+    create_user, authenticate_user,find_user_by_id
 )
 from utils.jwt_helper import generate_token
 import requests
