@@ -76,7 +76,6 @@ def login():
                 'success': True,
                 'message': '로그인 성공',
                 'user': auth_result['user'],
-                'token': token
             }
 
             # 쿠키에 토큰 저장하여 응답
