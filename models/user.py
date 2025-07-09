@@ -4,7 +4,58 @@ from models.database import users_collection
 from utils.password_helper import hash_password, check_password
 
 
-def create_user(name, email, password):
+# def create_user(name, email, password):
+#     try:
+#         # 이메일 중복 확인
+#         if users_collection.find_one({"email": email}):
+#             return {"success": False, "message": "이미 존재하는 이메일입니다"}
+
+#         # 비밀번호 해싱
+#         hashed_password = hash_password(password)
+
+#         user_data = {
+#             "name": name,
+#             "email": email,
+#             "password": hashed_password,
+#             "created_at": datetime.utcnow(),
+#             "updated_at": datetime.utcnow()
+#         }
+
+#         # Slack 정보가 있으면 추가
+#         if slack_data:
+#             user_data.update({
+#                 "slack_user_id": slack_data.get("slack_user_id"),
+#                 "slack_team_id": slack_data.get("slack_team_id"),
+#                 "avatar_url": slack_data.get("avatar_url"),
+#                 "slack_real_name": slack_data.get("real_name"),
+#                 "slack_display_name": slack_data.get("display_name"),
+#                 "slack_synced_at": datetime.utcnow()
+#             })
+#         else:
+#             # Slack 정보가 없으면 기본값
+#             user_data.update({
+#                 "slack_user_id": None,
+#                 "slack_team_id": None,
+#                 "avatar_url": None,
+#                 "slack_real_name": None,
+#                 "slack_display_name": None,
+#                 "slack_synced_at": None
+#             })
+
+#         # DB에 저장
+#         result = users_collection.insert_one(user_data)
+
+#         return {
+#             "success": True,
+#             "message": "회원가입 성공",
+#             "user_id": str(result.inserted_id),
+#             "has_slack": slack_data is not None
+#         }
+
+#     except Exception as e:
+#         return {"success": False, "message": f"회원가입 실패: {str(e)}"}
+def create_user(name, email, password, slack_data=None):
+    """새 사용자 생성 (Slack 정보 선택적 포함)"""
     try:
         # 이메일 중복 확인
         if users_collection.find_one({"email": email}):
@@ -13,6 +64,7 @@ def create_user(name, email, password):
         # 비밀번호 해싱
         hashed_password = hash_password(password)
 
+        # 기본 사용자 데이터
         user_data = {
             "name": name,
             "email": email,
