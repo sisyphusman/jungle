@@ -60,7 +60,7 @@
     </div>
 
     <div class="d-grid">
-      <button type="submit" class="btn btn-primary mt-4">게시</button>
+      <button id="postCardBtn" type="submit" class="btn btn-primary mt-4">게시</button>
     </div>
   </div>
 
@@ -68,11 +68,48 @@
 
   <script>
     $(document).ready(function(){
+      $('#postCardBtn').click(function(){
+      const til_title = $("#tilTitle").val();
+      const til_url = $("#urlInput").val();
+      const tag_list = Array.from(document.getElementsByName("tag")).map(element => element.textContent.trim())
+      const likes = 0
+
+      $.ajax({
+            url: "/models/post_card", 
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ 
+              til_title: til_title, 
+              til_url: til_url, 
+              tag_list: tag_list, 
+              likes: likes
+            }),
+            xhrFields: {
+              withCredentials: true 
+            },
+            success: function (response) {
+              if (response.success) {
+                window.location.href = "/home"; 
+              } else {
+                alert("카드 생성 실패: " + response.message);
+              }
+            },
+            error: function (xhr) {
+              const res = xhr.responseJSON;
+              if (res && res.message) {
+                alert("카드 생성 실패: " + res.message);
+              } else {
+                alert("카드 생성 중 오류가 발생했습니다.");
+              }
+            },
+          });
+      })
+
       $('#addTagBtn').click(function(){
         const tagValue = $('#tagInput').val().trim();
         if(tagValue !== ""){
           const tagBadge = `
-            <span class="badge text-bg-primary fs-6 me-1">${tagValue}</span>
+            <span name="tag" class="badge text-bg-primary fs-6 me-1">${tagValue}</span>
           `;
           $('#tagList').append(tagBadge);
           $('#tagInput').val("");
