@@ -347,6 +347,7 @@
       url: `/models/like_card/${cardId}`,
       type: "POST",
       xhrFields: { withCredentials: true },
+      // TODO : 본인 글에 추천을 눌렀을 경우 본인 글은 추천할 수 없습니다 라는 alert 생성
       success: function (response) {
         if (response.success) {
           likeCountSpan.text(response.likes);

@@ -208,6 +208,14 @@ def post_card(current_user):
 @auth_required
 def like_card(current_user, card_id):
     try:
+        card = cards_collection.find_one({"_id": ObjectId(card_id)})
+
+        if not card:
+            return jsonify({"success": False, "message": "카드를 찾을 수 없습니다."}), 404
+
+        if str(card.get("author_id")) == str(current_user['id']):
+            return jsonify({"success": False, "message": "본인 글은 추천할 수 없습니다."}), 400
+
         result = cards_collection.update_one(
             {"_id": ObjectId(card_id)},
             {"$inc": {"likes": 1}}
@@ -218,6 +226,7 @@ def like_card(current_user, card_id):
 
         # 업데이트 후 현재 좋아요 수 반환
         card = cards_collection.find_one({"_id": ObjectId(card_id)})
+
         return jsonify({
             "success": True,
             "message": "좋아요 추가 성공!",
