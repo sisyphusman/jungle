@@ -271,6 +271,15 @@ def create_dm_conversation_route(current_user):
 
         print(f"[DEBUG] 작성자: {author['name']} (ID: {author['id']})")
 
+        card = cards_collection.find_one({"_id": ObjectId(card_id)})
+        if not card:
+            return jsonify({
+            "success": False,
+            "message": "카드를 찾을 수 없습니다."
+        }), 404
+
+        print(f"[DEBUG] 카드 제목: {card['title']}")
+
         # 4. Slack ID 확인
         questioner_slack_id = current_user.get('slack_user_id')
         author_slack_id = author.get('slack_user_id')
@@ -293,13 +302,29 @@ def create_dm_conversation_route(current_user):
 
         # 6. Slack DM 채널 생성
         dm_result = create_dm_conversation(
-            questioner_slack_id, author_slack_id)
+            questioner_slack_id, 
+            author_slack_id,
+            current_user['name'],  
+            author['name'],       
+            card['title'],
+            card_id        
+        )
 
         if dm_result['success']:
+        # Q&A 레코드 생성
+            from models.qna import create_qna_record
+            qna_id = create_qna_record(
+                card_id, 
+                dm_result.get('channel_id'),
+                current_user['name'],
+                author['name']
+            )
+    
             return jsonify({
                 "success": True,
                 "message": "질문방이 생성되었습니다!",
-                "channel_id": dm_result.get('channel_id')
+                "channel_id": dm_result.get('channel_id'),
+                "qna_id": qna_id  # Q&A ID 반환
             })
         else:
             return jsonify({
@@ -313,3 +338,183 @@ def create_dm_conversation_route(current_user):
             "success": False,
             "message": f"서버 오류: {str(e)}"
         }), 500
+
+
+@card_bp.route("/collect-conversation", methods=['POST'])
+@auth_required
+def collect_conversation_route(current_user):
+    """대화 수집 및 영구 저장"""
+    try:
+        # 1. 요청 데이터 파싱
+        data = request.get_json()
+        card_id = data.get('card_id')
+
+        print(f"[DEBUG] 대화 수집 요청: card_id={card_id}")
+        print(f"[DEBUG] 현재 사용자: {current_user['name']} (ID: {current_user['id']})")
+
+        # 2. 필수 데이터 검증
+        if not card_id:
+            return jsonify({
+                "success": False,
+                "message": "카드 ID가 필요합니다."
+            }), 400
+
+        # 3. 카드 정보 조회
+        from bson import ObjectId
+        card = cards_collection.find_one({"_id": ObjectId(card_id)})
+        if not card:
+            return jsonify({
+                "success": False,
+                "message": "카드를 찾을 수 없습니다."
+            }), 404
+
+        # 4. 작성자 정보 조회
+        author_name = card.get('author')
+        author = find_user_by_name(author_name)
+        if not author:
+            return jsonify({
+                "success": False,
+                "message": f"작성자 '{author_name}'을 찾을 수 없습니다."
+            }), 404
+
+        # 5. Slack ID 확인
+        questioner_slack_id = current_user.get('slack_user_id')
+        author_slack_id = author.get('slack_user_id')
+
+        if not questioner_slack_id or not author_slack_id:
+            return jsonify({
+                "success": False,
+                "message": "Slack 연동이 되지 않은 사용자입니다."
+            }), 400
+
+        print(f"[DEBUG] Slack IDs - 질문자: {questioner_slack_id}, 작성자: {author_slack_id}")
+
+        # 6. DM 채널 찾기
+        from utils.slack_helper import find_dm_channel, collect_conversation_history, extract_conversation_by_card, format_conversation_messages
+        
+        channel_id = find_dm_channel(questioner_slack_id, author_slack_id)
+        if not channel_id:
+            return jsonify({
+                "success": False,
+                "message": "DM 채널을 찾을 수 없습니다. 먼저 질문하기 버튼을 눌러주세요."
+            }), 404
+
+        print(f"[DEBUG] DM 채널 ID: {channel_id}")
+
+        # 7. Slack에서 대화 수집
+        all_messages = collect_conversation_history(channel_id)
+        card_specific_messages = extract_conversation_by_card(all_messages, card_id)
+        formatted_messages = format_conversation_messages(
+            card_specific_messages, questioner_slack_id, author_slack_id
+        )
+
+        print(f"[DEBUG] 수집 결과 - 전체: {len(all_messages)}, 카드별: {len(card_specific_messages)}, 포맷됨: {len(formatted_messages)}")
+
+        # 8. 🔥 새로 추가: 대화 영구 저장
+        if formatted_messages:
+            from models.conversation import save_conversation
+            
+            save_result = save_conversation(
+                card_id=card_id,
+                channel_id=channel_id,
+                questioner_slack_id=questioner_slack_id,
+                author_slack_id=author_slack_id,
+                questioner_name=current_user['name'],
+                author_name=author['name'],
+                post_title=card.get('title', '제목 없음'),
+                messages=formatted_messages
+            )
+
+            # 9. 성공 응답 (저장 정보 포함)
+            return jsonify({
+                "success": True,
+                "conversation": formatted_messages,
+                "storage": {
+                    "saved": save_result["success"],
+                    "conversation_id": save_result.get("conversation_id"),
+                    "action": save_result.get("action"),  # created or updated
+                    "version": save_result.get("version"),
+                    "message_count": save_result.get("message_count")
+                },
+                "debug_info": {
+                    "total_messages": len(all_messages),
+                    "card_specific_messages": len(card_specific_messages),
+                    "formatted_message_count": len(formatted_messages),
+                    "channel_id": channel_id
+                }
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "해당 카드에 대한 대화를 찾을 수 없습니다.",
+                "debug_info": {
+                    "total_messages": len(all_messages),
+                    "card_specific_messages": len(card_specific_messages),
+                    "formatted_message_count": 0,
+                    "channel_id": channel_id
+                }
+            })
+
+    except Exception as e:
+        print(f"[ERROR] 대화 수집 중 오류: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"서버 오류: {str(e)}"
+        }), 500
+
+@card_bp.route("/conversation/<conversation_id>", methods=['GET'])
+@auth_required
+def get_conversation_detail(current_user, conversation_id):
+    """특정 대화 상세 조회"""
+    try:
+        from models.conversation import get_conversation_by_id
+        
+        conversation = get_conversation_by_id(conversation_id)
+        
+        if conversation:
+            return jsonify({
+                "success": True,
+                "conversation": conversation
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "대화를 찾을 수 없습니다."
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"대화 조회 실패: {str(e)}"
+        }), 500
+    
+
+@card_bp.route("/conversation/<conversation_id>/publish", methods=['POST'])
+@auth_required
+def publish_conversation_route(current_user, conversation_id):
+    """대화를 Q&A 게시판에 공개"""
+    try:
+        from models.conversation import publish_conversation
+        
+        result = publish_conversation(conversation_id)
+        
+        if result["success"]:
+            return jsonify({
+                "success": True,
+                "message": "대화가 Q&A 게시판에 공개되었습니다.",
+                "conversation_id": conversation_id
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": result.get("message", "공개 실패")
+            }), 500
+            
+    except Exception as e:
+        print(f"[ERROR] 공개 처리 실패: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"공개 처리 실패: {str(e)}"
+        }), 500
+    
+

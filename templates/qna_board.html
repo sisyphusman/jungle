@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://kit.fontawesome.com/3ea215d505.js" crossorigin="anonymous"></script>
+    <title>Q&A 게시판 - TIL Jungle</title>
+    
+    <style>
+        .conversation-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .conversation-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .message-preview {
+            background-color: #f8f9fa;
+            border-left: 3px solid #0d6efd;
+            padding: 10px;
+            border-radius: 0 5px 5px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 헤더 -->
+    <div class="container py-4 mt-3 position-relative" style="background-color: #E3F2FD">
+        <div class="text-center">
+            <div class="d-inline-flex align-items-center">
+                <a href="/home">
+                    <img src="{{ url_for('static', filename='/images/jungle_logo.png')}}" 
+                         alt="정글 이미지 로고" style="height: 60px" class="me-3" />
+                </a>
+                <h1 class="text-center display-4 mb-0 fw-bold">TIL JUNGLE Q&A</h1>
+            </div>
+            <div class="position-absolute top-0 end-0 mt-5 me-5">
+                <a href="/home" class="btn btn-primary me-1">
+                    <i class="fas fa-home me-2"></i>홈으로
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3>
+                        <i class="fas fa-question-circle text-primary"></i>
+                        질문과 답변 모음
+                    </h3>
+                    <span class="text-muted">총 {{ conversations|length }}개의 대화</span>
+                </div>
+
+                {% if conversations %}
+                    {% for conv in conversations %}
+                    <div class="card conversation-card mb-4">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5 class="card-title text-primary">
+                                        <i class="fas fa-bookmark"></i>
+                                        {{ conv.post_title }}
+                                    </h5>
+                                    
+                                    <div class="mb-3">
+                                        <span class="badge bg-success me-2">
+                                            <i class="fas fa-user"></i> {{ conv.questioner_name }}
+                                        </span>
+                                        <span class="badge bg-info me-2">
+                                            <i class="fas fa-user-tie"></i> {{ conv.author_name }}
+                                        </span>
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-comments"></i> {{ conv.message_count }}개 메시지
+                                        </span>
+                                    </div>
+
+                                    <div class="message-preview">
+                                        <strong>대화 미리보기:</strong><br>
+                                        <em>{{ conv.preview }}</em>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4 text-end">
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-clock"></i>
+                                            {{ conv.last_collected_at.strftime('%Y-%m-%d %H:%M') }}
+                                        </small>
+                                    </div>
+                                    <button class="btn btn-primary" onclick="viewFullConversation('{{ conv.id }}')">
+                                        <i class="fas fa-eye"></i> 전체 대화 보기
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center mt-5">
+                        <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">아직 공개된 Q&A가 없습니다</h4>
+                        <p class="text-muted">
+                            TIL에 질문하고 대화를 나눈 후<br>
+                            "Q&A 게시판에 공개하기"를 통해 다른 사람들과 공유해보세요!
+                        </p>
+                        <a href="/home" class="btn btn-primary">
+                            <i class="fas fa-arrow-left"></i> TIL 보러가기
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 대화 상세보기 모달 -->
+    <div class="modal fade" id="conversationDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">
+                        <i class="fas fa-comments"></i> 대화 상세보기
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- 동적으로 채워짐 -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script>
+        function viewFullConversation(conversationId) {
+            $.ajax({
+                url: `/models/conversation/${conversationId}`,
+                type: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        showConversationDetail(response.conversation);
+                    } else {
+                        alert('대화를 불러올 수 없습니다: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    const res = xhr.responseJSON;
+                    alert('오류 발생: ' + (res?.message || '서버 오류'));
+                }
+            });
+        }
+
+        function showConversationDetail(conversation) {
+            // 모달 제목 설정
+            document.getElementById('modalTitle').innerHTML = `
+                <i class="fas fa-comments"></i> ${conversation.post_title}
+            `;
+
+            // 대화 내용 생성
+            const messagesHtml = conversation.messages.map(msg => `
+                <div class="mb-3 p-3 border-start border-3 ${msg.role === '질문자' ? 'border-primary' : 'border-success'}">
+                    <strong class="text-${msg.role === '질문자' ? 'primary' : 'success'}">
+                        ${msg.role === '질문자' ? conversation.questioner_name : conversation.author_name}:
+                    </strong>
+                    <div class="mt-1">${msg.text}</div>
+                    <small class="text-muted">
+                        ${new Date(parseFloat(msg.timestamp) * 1000).toLocaleString()}
+                    </small>
+                </div>
+            `).join('');
+
+            // 모달 내용 설정
+            document.getElementById('modalBody').innerHTML = `
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">질문자:</small>
+                            <div><strong>${conversation.questioner_name}</strong></div>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">답변자:</small>
+                            <div><strong>${conversation.author_name}</strong></div>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <small class="text-muted">버전:</small>
+                            <span class="badge bg-info">v${conversation.version}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">메시지 수:</small>
+                            <span class="badge bg-success">${conversation.message_count}개</span>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <h6>대화 내용</h6>
+                ${messagesHtml}
+            `;
+
+            // 모달 표시
+            $('#conversationDetailModal').modal('show');
+        }
+    </script>
+</body>
+</html>
