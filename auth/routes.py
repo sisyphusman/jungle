@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify, make_response, redirect, url_for, session
 from models.user import (
-    create_user, authenticate_user, 
-    create_or_update_slack_user, find_user_by_slack_id
+    create_user, authenticate_user
 )
 from utils.jwt_helper import generate_token
 import requests
