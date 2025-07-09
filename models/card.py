@@ -1,8 +1,10 @@
 from datetime import datetime
+from bson import ObjectId
 from models.database import cards_collection
 from flask import Blueprint, jsonify, request
 from utils.auth_required import auth_required
 from utils.bs4_crawler import fetch_thumbnail
+from models.user import find_user_by_id
 
 
 card_bp = Blueprint('card', __name__)
@@ -12,8 +14,8 @@ def search_card(keyword):
     try:
         query = {
             "$or": [
-                { "tag_list": { "$regex": keyword, "$options": "i" } },
-                { "title": { "$regex": keyword, "$options": "i" } }
+                {"tag_list": {"$regex": keyword, "$options": "i"}},
+                {"title": {"$regex": keyword, "$options": "i"}}
             ]
         }
 
@@ -22,6 +24,7 @@ def search_card(keyword):
         cards = []
         for card in cards_cursor:
             cards.append({
+                "_id": str(card.get("_id")),
                 "img": card.get("img", ""),
                 "title": card.get("title", ""),
                 "author": card.get("author", ""),
@@ -29,6 +32,7 @@ def search_card(keyword):
                 "date": card.get("date", ""),
                 "likes": card.get("likes", 0)
             })
+            print(str(card.get("_id")))
 
         return {
             "success": True,
@@ -50,6 +54,7 @@ def get_cards(page):
     cards = []
     for card in cards_cursor:
         cards.append({
+            "_id": str(card.get("_id")),
             "img": card.get("img", ""),
             "title": card.get("title", ""),
             "author": card.get("author", ""),
@@ -57,6 +62,7 @@ def get_cards(page):
             "date": card.get("date", ""),
             "likes": card.get("likes", 0)
         })
+        print(str(card.get("_id")))
     return cards
 
 
@@ -123,7 +129,16 @@ def post_card(current_user):
     today = datetime.today()
     date_str = today.strftime("%Y-%m-%d")
 
+    user_id = ObjectId(current_user['id'])
+    user = find_user_by_id(user_id)
+    if not user:
+        return jsonify({
+            "success": False,
+            "message": "Fail: 사용자를 찾을 수 없음"
+        }), 404
+
     card_data = {
+        "author_id": user_id,
         "title": title,
         "author": author_name,
         "img": img,
@@ -147,3 +162,29 @@ def post_card(current_user):
         "success": True,
         "message": "Success: 카드 포스팅 성공!"
     })
+
+
+@card_bp.route("/like_card/<card_id>", methods=['POST'])
+@auth_required
+def like_card(current_user, card_id):
+    try:
+        result = cards_collection.update_one(
+            {"_id": ObjectId(card_id)},
+            {"$inc": {"likes": 1}}
+        )
+        if result.matched_count == 0:
+            return jsonify({"success": False, "message": "카드를 찾을 수 없습니다."}),
+        404
+
+        # 업데이트 후 현재 좋아요 수 반환
+        card = cards_collection.find_one({"_id": ObjectId(card_id)})
+        return jsonify({
+            "success": True,
+            "message": "좋아요 추가 성공!",
+            "likes": card["likes"]
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"좋아요 추가 실패: {str(e)}"
+        }), 500

@@ -123,8 +123,8 @@
 
               <div class="mt-auto d-flex justify-content-between align-items-center">
                 <small class="text-muted">${card.date}</small>
-                <div>
-                  <span class="text-primary">
+                <div class="like-btn">
+                  <span class="text-primary" data-id="${card._id}">
                     <i class="fas fa-thumbs-up"></i>
                   </span>
                   <span class="card-likes">${card.likes}</span>
@@ -170,8 +170,8 @@
 
             <div class="mt-auto d-flex justify-content-between align-items-center">
               <small class="text-muted">{{ card.date }}</small>
-              <div>
-                <span class="text-primary">
+              <div class="like-btn">
+                <span class="text-primary" data-id="{{ card._id }}">
                   <i class="fas fa-thumbs-up"></i>
                 </span>
                 <span class="card-likes">{{ card.likes }}</span>
@@ -253,8 +253,8 @@
 
                         <div class="mt-auto d-flex justify-content-between align-items-center">
                           <small class="text-muted">${card.date}</small>
-                          <div>
-                            <span class="text-primary">
+                          <div class="like-btn">
+                            <span class="text-primary" data-id="${card._id}">
                               <i class="fas fa-thumbs-up"></i>
                             </span>
                             <span class="card-likes">${card.likes}</span>
@@ -271,6 +271,34 @@
           },
         });
       }
+
+      $(document).on("click", ".text-primary", function() {
+      const cardId = $(this).data("id");
+      const likeCountSpan = $(this).siblings(".card-likes");
+        console.log("Clicked cardId:", cardId); // 디버깅용
+
+
+      $.ajax({
+        url: `/models/like_card/${cardId}`,
+        type: "POST",
+        xhrFields: { withCredentials: true }, 
+        success: function(response) {
+          if (response.success) {
+            likeCountSpan.text(response.likes);
+          } else {
+            alert("좋아요 실패: " + response.message);
+          }
+        },
+        error: function(xhr) {
+          const res = xhr.responseJSON;
+          if (res && res.message) {
+            alert("좋아요 실패: " + res.message);
+          } else {
+            alert("좋아요 요청 중 오류가 발생했습니다.");
+          }
+        },
+      });
+    });
     </script>
   </body>
 </html>
