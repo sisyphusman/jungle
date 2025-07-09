@@ -1,6 +1,11 @@
 from flask import Blueprint, render_template
 from utils.auth_required import auth_required
 
+
+
+
+from models.card import get_cards
+
 route_bp = Blueprint('route', __name__)
 
 # 인증 불필요 - 로그인 페이지
@@ -31,3 +36,14 @@ def home():
 @route_bp.route("/post")
 def post():
     return render_template("post.html")
+
+
+@route_bp.route("/mypage")
+@auth_required
+def mypage(current_user):
+    # 임시로 빈 데이터로 렌더링
+    return render_template("mypage.html", 
+                         current_user=current_user,
+                         user_posts=[],
+                         total_likes=0,
+                         active_days=0)
