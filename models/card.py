@@ -242,11 +242,11 @@ def post_card(current_user):
 
     try:
         result = cards_collection.insert_one(card_data)
-        print("inserted id: ", result.inserted_id)
+
     except Exception as e:
-        print("fail", str(e))
+
         return jsonify({
-            "sucess": False,
+            "success": False,
             "message": "Fail: DB insert 오류"
         }), 500
 
@@ -311,10 +311,6 @@ def create_dm_conversation_route(current_user):
         card_id = data.get('card_id')
         author_name = data.get('author_name')  # 변경: author_id → author_name
 
-        print(
-            f"[DEBUG] DM 생성 요청: card_id={card_id}, author_name={author_name}")
-        print(
-            f"[DEBUG] 질문자: {current_user['name']} (ID: {current_user['id']})")
 
         # 2. 필수 데이터 검증
         if not card_id or not author_name:
@@ -331,8 +327,6 @@ def create_dm_conversation_route(current_user):
                 "message": f"작성자 '{author_name}'을 찾을 수 없습니다."
             }), 404
 
-        print(f"[DEBUG] 작성자: {author['name']} (ID: {author['id']})")
-
         card = cards_collection.find_one({"_id": ObjectId(card_id)})
         if not card:
             return jsonify({
@@ -340,7 +334,6 @@ def create_dm_conversation_route(current_user):
                 "message": "카드를 찾을 수 없습니다."
             }), 404
 
-        print(f"[DEBUG] 카드 제목: {card['title']}")
 
         # 4. Slack ID 확인
         questioner_slack_id = current_user.get('slack_user_id')
@@ -352,8 +345,6 @@ def create_dm_conversation_route(current_user):
                 "message": "Slack 연동이 되지 않은 사용자입니다."
             }), 400
 
-        print(
-            f"[DEBUG] Slack IDs - 질문자: {questioner_slack_id}, 작성자: {author_slack_id}")
 
         # 5. 자기 자신에게 질문하는 경우 방지
         if questioner_slack_id == author_slack_id:
@@ -395,7 +386,6 @@ def create_dm_conversation_route(current_user):
             }), 500
 
     except Exception as e:
-        print(f"[ERROR] DM 생성 중 오류: {str(e)}")
         return jsonify({
             "success": False,
             "message": f"서버 오류: {str(e)}"
@@ -405,15 +395,12 @@ def create_dm_conversation_route(current_user):
 @card_bp.route("/collect-conversation", methods=['POST'])
 @auth_required
 def collect_conversation_route(current_user):
-    """대화 수집 및 영구 저장 (역할 자동 감지)"""
+    """대화 수집 및 영구 저장 (역할 구분)"""
     try:
         # 1. 요청 데이터 파싱
         data = request.get_json()
         card_id = data.get('card_id')
 
-        print(f"[DEBUG] 대화 수집 요청: card_id={card_id}")
-        print(
-            f"[DEBUG] 현재 사용자: {current_user['name']} (ID: {current_user['id']})")
 
         # 2. 필수 데이터 검증
         if not card_id:
@@ -440,7 +427,7 @@ def collect_conversation_route(current_user):
                 "message": f"작성자 '{author_name}'을 찾을 수 없습니다."
             }), 404
 
-        # 5. 🔥 역할 자동 감지: 현재 사용자가 질문자인지 작성자인지 판단
+        # 5. 역할 구분: 현재 사용자가 질문자인지 작성자인지 판단
         current_user_slack_id = current_user.get('slack_user_id')
         author_slack_id = author.get('slack_user_id')
 
@@ -450,7 +437,7 @@ def collect_conversation_route(current_user):
                 "message": "Slack 연동이 되지 않은 사용자입니다."
             }), 400
 
-        # 6. 🔥 기존 대화 세션에서 실제 질문자/작성자 찾기
+        # 6. 기존 대화 세션에서 실제 질문자/작성자 찾기
         existing_conversation = db.conversations.find_one({
             "card_id": card_id,
             "$or": [
@@ -466,8 +453,6 @@ def collect_conversation_route(current_user):
             questioner_name = existing_conversation["questioner_name"]
             author_name = existing_conversation["author_name"]
 
-            print(
-                f"[DEBUG] 기존 대화 발견 - 질문자: {questioner_name}({questioner_slack_id}), 작성자: {author_name}({author_slack_id})")
         else:
             # 새로운 대화인 경우 → 현재 사용자가 질문자
             if current_user_slack_id == author_slack_id:
@@ -479,8 +464,6 @@ def collect_conversation_route(current_user):
             questioner_slack_id = current_user_slack_id
             questioner_name = current_user['name']
 
-            print(
-                f"[DEBUG] 새 대화 - 질문자: {questioner_name}({questioner_slack_id}), 작성자: {author_name}({author_slack_id})")
 
         # 7. DM 채널 찾기
         from utils.slack_helper import find_dm_channel, collect_conversation_history, extract_conversation_by_card, format_conversation_messages
@@ -492,8 +475,6 @@ def collect_conversation_route(current_user):
                 "message": "DM 채널을 찾을 수 없습니다. 먼저 질문하기 버튼을 눌러주세요."
             }), 404
 
-        print(f"[DEBUG] DM 채널 ID: {channel_id}")
-
         # 8. Slack에서 대화 수집
         all_messages = collect_conversation_history(channel_id)
         card_specific_messages = extract_conversation_by_card(
@@ -501,9 +482,6 @@ def collect_conversation_route(current_user):
         formatted_messages = format_conversation_messages(
             card_specific_messages, questioner_slack_id, author_slack_id
         )
-
-        print(
-            f"[DEBUG] 수집 결과 - 전체: {len(all_messages)}, 카드별: {len(card_specific_messages)}, 포맷됨: {len(formatted_messages)}")
 
         # 9. 🔥 대화 영구 저장 (올바른 질문자/작성자 정보 사용)
         if formatted_messages:
@@ -553,7 +531,6 @@ def collect_conversation_route(current_user):
             })
 
     except Exception as e:
-        print(f"[ERROR] 대화 수집 중 오류: {str(e)}")
         return jsonify({
             "success": False,
             "message": f"서버 오류: {str(e)}"
@@ -609,7 +586,6 @@ def publish_conversation_route(current_user, conversation_id):
             }), 500
 
     except Exception as e:
-        print(f"[ERROR] 공개 처리 실패: {str(e)}")
         return jsonify({
             "success": False,
             "message": f"공개 처리 실패: {str(e)}"

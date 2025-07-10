@@ -69,10 +69,7 @@ def test_slack_connection():
         data = response.json()
         
         if data.get('ok'):
-            print(f"✅ Slack 연결 성공!")
-            print(f"   봇 이름: {data.get('user')}")
-            print(f"   팀 이름: {data.get('team')}")
-            print(f"   팀 ID: {data.get('team_id')}")
+
             return True
         else:
             print(f"❌ Slack 연결 실패: {data.get('error')}")
@@ -217,10 +214,9 @@ def send_welcome_message(channel_id, questioner_name, author_name, post_title, c
         
         if data.get('ok'):
             logger.info(f"환영 메시지 발송 성공 (카드 ID: {card_id})")
-            print(f"[DEBUG] 환영 메시지 발송 성공: {data}")
+        
         else:
-            logger.warning(f"환영 메시지 발송 실패: {data.get('error')}")
-            print(f"[DEBUG] 환영 메시지 발송 실패: {data}")
+            logger.warning(f"환영 메시지 발송 실패: {data.get('error')}")           
             
     except Exception as e:
         logger.error(f"환영 메시지 발송 중 오류: {str(e)}")
@@ -248,24 +244,18 @@ def collect_conversation_history(channel_id):
             "limit": 20,
             "include_all_metadata": "true"  # 🔥 핵심 수정: 메타데이터 포함!
         }
-        
-        print(f"[DEBUG] 대화 수집 요청 파라미터: {params}")
-        
+                
         response = requests.get(url, headers=headers, params=params)
         data = response.json()
         
         if data.get('ok'):
-            messages = data.get('messages', [])
-            print(f"[DEBUG] 수집된 메시지 수: {len(messages)}")
-            
+            messages = data.get('messages', [])            
             # 메타데이터 있는 메시지 확인
             metadata_count = 0
             for msg in messages:
                 if msg.get('metadata'):
                     metadata_count += 1
-                    print(f"[DEBUG] 메타데이터 발견: {msg.get('metadata')}")
-            
-            print(f"[DEBUG] 메타데이터 포함 메시지 수: {metadata_count}")
+
             return messages
         else:
             logger.error(f"대화 수집 실패: {data.get('error')}")
@@ -278,10 +268,7 @@ def collect_conversation_history(channel_id):
 def format_conversation_messages(messages, questioner_slack_id, author_slack_id):
     """메시지를 읽기 쉬운 형태로 포맷팅"""
     formatted = []
-    
-    print(f"[DEBUG] 질문자 Slack ID: {questioner_slack_id}")
-    print(f"[DEBUG] 작성자 Slack ID: {author_slack_id}")
-    print(f"[DEBUG] 총 메시지 수: {len(messages)}")
+
     
     for i, msg in enumerate(reversed(messages)):
         user_id = msg.get('user')
@@ -375,9 +362,6 @@ def extract_conversation_by_card(messages, target_card_id):
             if card_id_in_metadata == target_card_id:
                 bot_timestamp = float(msg.get('ts'))
                 bot_message_timestamps.append(bot_timestamp)
-                print(f"[DEBUG] ✅ 해당 카드의 봇 메시지 발견!")
-                print(f"         타임스탬프: {msg.get('ts')}")
-                print(f"         텍스트: {msg.get('text', '')[:50]}")
                 
         # 봇 메시지 여부 확인
         if msg.get('subtype') == 'bot_message':
@@ -385,18 +369,11 @@ def extract_conversation_by_card(messages, target_card_id):
     
     if not bot_message_timestamps:
         print(f"[DEBUG] ❌ 해당 카드 ID({target_card_id})의 봇 메시지를 찾을 수 없음")
-        # 디버깅을 위해 모든 메시지 정보 출력
-        print(f"[DEBUG] 📋 전체 메시지 분석:")
-        for i, msg in enumerate(messages):
-            msg_type = "봇" if msg.get('subtype') == 'bot_message' else "사용자"
-            metadata_info = "메타데이터 있음" if msg.get('metadata') else "메타데이터 없음"
-            print(f"         메시지 {i}: {msg_type}, {metadata_info}, TS: {msg.get('ts')}")
-        return []
+        # return []
     
     # 2. 가장 최근 봇 메시지 이후의 대화만 추출
     latest_bot_timestamp = max(bot_message_timestamps)
-    print(f"[DEBUG] 🕐 가장 최근 봇 메시지 타임스탬프: {latest_bot_timestamp}")
-    
+
     # 3. 해당 타임스탬프 이후의 메시지들만 필터링
     filtered_messages = []
     for msg in messages:
@@ -404,8 +381,5 @@ def extract_conversation_by_card(messages, target_card_id):
         
         # 봇 메시지 이후의 메시지만 포함
         if msg_timestamp > latest_bot_timestamp:
-            filtered_messages.append(msg)
-            print(f"[DEBUG] ✅ 포함된 메시지: {msg.get('ts')} - {msg.get('text', '')[:30]}")
-    
-    print(f"[DEBUG] 🎉 필터링 완료! 총 {len(filtered_messages)}개 메시지")
+            filtered_messages.append(msg)    
     return filtered_messages

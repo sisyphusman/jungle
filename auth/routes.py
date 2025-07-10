@@ -1,11 +1,10 @@
-from flask import Blueprint, request, jsonify, make_response, redirect, url_for, session
+from flask import Blueprint, request, jsonify, make_response, session
 from models.user import (
-    create_user, authenticate_user, find_user_by_id, update_user_slack_info, find_user_by_email
+    create_user, authenticate_user, update_user_slack_info, find_user_by_email
 )
 from utils.jwt_helper import generate_token
 from utils.email_helper import send_verification_email, store_verification_code, verify_email_code, generate_verification_code
-import requests
-from config import Config
+
 
 auth_bp = Blueprint('auth', __name__)
 
