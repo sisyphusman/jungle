@@ -20,15 +20,12 @@ def index():
 def signup():
     return render_template("signup.html")
 
-# 임시로 인증 없이 접속 가능
-
 
 @route_bp.route("/home")
-def home():
+@auth_required 
+def home(current_user):
     cards = get_cards(1)
-    return render_template("home.html", cards=cards)
-
-# 임시로 인증 없이 접속 가능
+    return render_template("home.html", cards=cards, current_user=current_user)
 
 
 @route_bp.route("/post")
@@ -53,7 +50,15 @@ def mypage(current_user):
 def logout():
     session.clear()  # 서버 세션 삭제
     response = jsonify({"success": True, "message": "로그아웃 되었습니다."})
-    response.set_cookie('access_token', '', expires=0)  # JWT 쿠키 삭제 예시
+    response.set_cookie(
+        'access_token', 
+        '', 
+        expires=0,
+        httponly=True,
+        secure=True,  
+        samesite='Lax',
+        path='/'  
+    )
     return jsonify({
         "success": True
     })
