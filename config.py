@@ -1,65 +1,3 @@
-# import os
-# from dotenv import load_dotenv
-# from datetime import timedelta
-# import codecs
-
-# load_dotenv()
-
-# class Config:
-#     # MongoDB 설정
-#     raw_uri = os.environ.get('MONGO_URI') or 'mongodb://localhost:27017/til_jungle'
-#     MONGO_URI = codecs.decode(raw_uri, 'unicode_escape')
-#     MONGO_MAX_POOL_SIZE = int(os.environ.get('MONGO_MAX_POOL_SIZE', '10'))
-#     MONGO_MIN_POOL_SIZE = int(os.environ.get('MONGO_MIN_POOL_SIZE', '1'))
-    
-#     # Flask 기본 설정
-#     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
-#     LOG_LEVEL = os.environ.get('LOG_LEVEL') or 'INFO'
-    
-#     # 서버 설정
-#     BASE_URL = os.environ.get('BASE_URL') or 'https://localhost:5001'
-#     SERVER_HOST = os.environ.get('SERVER_HOST', '127.0.0.1')
-#     SERVER_PORT = int(os.environ.get('SERVER_PORT', '5001'))
-    
-#     # JWT 설정
-#     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-dev-fallback-key'
-#     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
-#         hours=int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES_HOURS', '2'))
-#     )
-    
-#     # Slack OAuth 설정
-#     SLACK_CLIENT_ID = os.environ.get('SLACK_CLIENT_ID')
-#     SLACK_CLIENT_SECRET = os.environ.get('SLACK_CLIENT_SECRET')
-#     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-#     SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-#     SLACK_TEAM_ID = os.environ.get('SLACK_TEAM_ID')
-    
-#     @staticmethod
-#     def validate_config():
-#         """설정 검증"""
-#         errors = []
-        
-#         # Slack 설정 필수 체크
-#         if not Config.SLACK_CLIENT_ID:
-#             errors.append("SLACK_CLIENT_ID가 설정되지 않았습니다")
-#         if not Config.SLACK_CLIENT_SECRET:
-#             errors.append("SLACK_CLIENT_SECRET가 설정되지 않았습니다")
-#         if not Config.SLACK_BOT_TOKEN:
-#             errors.append("SLACK_BOT_TOKEN이 설정되지 않았습니다")
-#         if not Config.SLACK_SIGNING_SECRET:
-#             errors.append("SLACK_SIGNING_SECRET가 설정되지 않았습니다")
-#         if not Config.SLACK_TEAM_ID:
-#             errors.append("SLACK_TEAM_ID가 설정되지 않았습니다")
-            
-#         if errors:
-#             print("⚠️  Slack OAuth 설정 누락:")
-#             for error in errors:
-#                 print(f"   - {error}")
-#             print("   Slack 앱을 생성하고 환경변수를 설정해주세요.")
-#             return False
-            
-#         return True
-
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
@@ -94,6 +32,10 @@ class Config:
     # 서버 설정
     BASE_URL = os.environ.get('BASE_URL') or 'http://localhost:5001'
     
+    SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+    SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+    SMTP_EMAIL = os.environ.get('SMTP_EMAIL')
+    SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD')  # 앱 비밀번호
 
 
     @staticmethod
@@ -115,3 +57,5 @@ class Config:
             raise ValueError(f"필수 환경변수가 누락되었습니다: {', '.join(missing_vars)}")
         
         return True
+    
+    

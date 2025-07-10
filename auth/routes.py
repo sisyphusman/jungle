@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify, make_response, redirect, url_for, session
 from models.user import (
-    create_user, authenticate_user, find_user_by_id, update_user_slack_info
+    create_user, authenticate_user, find_user_by_id, update_user_slack_info, find_user_by_email
 )
 from utils.jwt_helper import generate_token
+from utils.email_helper import send_verification_email, store_verification_code, verify_email_code, generate_verification_code
 import requests
 from config import Config
 
@@ -10,7 +11,7 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    """회원가입 API (Slack 자동 매칭)"""
+    """회원가입 1단계 - 이메일 인증 코드 발송"""
     try:
         # JSON 또는 Form 데이터 받기
         if request.is_json:
@@ -29,81 +30,158 @@ def register():
                 'message': '모든 필드를 입력해주세요'
             }), 400
 
-        print(f"\n=== 회원가입 디버깅 시작 ===")
-        print(f"요청자: {name}")
-        print(f"회원가입 요청 이메일: '{email}'")
+        # 이메일 중복 확인
+        existing_user = find_user_by_email(email)
+        if existing_user:
+            return jsonify({
+                'success': False,
+                'message': '이미 가입된 이메일입니다'
+            }), 400
 
-        # 1. Slack 멤버 최신화
-        from utils.slack_helper import get_slack_members
-        slack_members = get_slack_members()
+        # 인증 코드 생성 및 발송
+        verification_code = generate_verification_code()
         
-        # 🔍 여기에 토큰 디버깅 코드 추가
-        print(f"=== 토큰 디버깅 ===")
-        print(f"Flask 앱 토큰: {Config.SLACK_BOT_TOKEN[:20]}...")
-        
-        print(f"=== 토큰 디버깅 ===")
-        print(f"Config.SLACK_BOT_TOKEN: {Config.SLACK_BOT_TOKEN}")
-        print(f"토큰 길이: {len(Config.SLACK_BOT_TOKEN) if Config.SLACK_BOT_TOKEN else 0}")
-        print(f"토큰이 None인가? {Config.SLACK_BOT_TOKEN is None}")
-        
-        print(f"Slack 멤버 수: {len(slack_members) if slack_members else 0}")
-        
-        if slack_members:
-            print("\n현재 Slack 워크스페이스 멤버 목록:")
-            for i, member in enumerate(slack_members, 1):
-                print(f"  [{i}] {member.get('name', 'Unknown')} - '{member.get('email', 'None')}'")
-        else:
-            print("❌ Slack 멤버 정보를 가져올 수 없음")
-
-        # 2. 이메일로 Slack 멤버 찾기
-        slack_data = None
-        print(f"\n=== 이메일 매칭 시도 ===")
-        
-        if slack_members:
-            for i, member in enumerate(slack_members, 1):
-                slack_email = member.get('email', '')
-                print(f"[{i}] 비교: '{slack_email}' == '{email}' ? {slack_email == email}")
+        if send_verification_email(email, verification_code):
+            if store_verification_code(email, verification_code):
+                # 세션에 임시 회원가입 정보 저장
+                session['temp_signup'] = {
+                    'name': name,
+                    'email': email,
+                    'password': password,
+                    'step': 'email_verification'
+                }
                 
-                if slack_email == email:
-                    slack_data = member
-                    print(f"✅ 매칭 성공! Slack 사용자: {member.get('name')} (ID: {member.get('slack_user_id')})")
-                    break
-            
-            if not slack_data:
-                print(f"❌ 매칭 실패: '{email}'이 Slack 멤버 목록에 없음")
-        else:
-            print("Slack 멤버 정보가 없어서 매칭 불가")
-
-        # 3. 사용자 생성 (Slack 정보 포함 또는 제외)
-        print(f"\n=== 사용자 생성 ===")
-        result = create_user(name, email, password, slack_data)
-
-        if result['success']:
-            print(f"✅ 사용자 생성 성공: {name} ({email})")
-            if result.get('has_slack'):
-                print(f"   - Slack 정보 연동됨: {slack_data['slack_user_id']}")
-                print(f"   - Slack 이름: {slack_data.get('name')}")
-                print(f"   - 아바타: {slack_data.get('avatar_url')}")
+                return jsonify({
+                    'success': True,
+                    'message': '인증 코드가 이메일로 발송되었습니다',
+                    'step': 'email_verification'
+                }), 200
             else:
-                print(f"   - 일반 회원가입 (Slack 정보 없음)")
-            
-            print(f"=== 회원가입 디버깅 완료 ===\n")
-            return jsonify(result), 201
+                return jsonify({
+                    'success': False,
+                    'message': '인증 코드 저장에 실패했습니다'
+                }), 500
         else:
-            print(f"❌ 사용자 생성 실패: {result.get('message')}")
-            print(f"=== 회원가입 디버깅 완료 ===\n")
-            return jsonify(result), 400
+            return jsonify({
+                'success': False,
+                'message': '이메일 발송에 실패했습니다'
+            }), 500
 
     except Exception as e:
-        print(f"❌ 서버 오류: {str(e)}")
-        print(f"=== 회원가입 디버깅 완료 ===\n")
         return jsonify({
             'success': False,
             'message': f'서버 오류: {str(e)}'
         }), 500
 
+@auth_bp.route('/verify-email', methods=['POST'])
+def verify_email():
+    """회원가입 2단계 - 이메일 인증 코드 확인"""
+    try:
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form
 
+        verification_code = data.get('verification_code')
+        
+        if not verification_code:
+            return jsonify({
+                'success': False,
+                'message': '인증 코드를 입력해주세요'
+            }), 400
 
+        # 세션에서 임시 회원가입 정보 확인
+        temp_signup = session.get('temp_signup')
+        if not temp_signup or temp_signup.get('step') != 'email_verification':
+            return jsonify({
+                'success': False,
+                'message': '회원가입 세션이 만료되었습니다. 다시 시도해주세요'
+            }), 400
+
+        # 인증 코드 검증
+        if verify_email_code(temp_signup['email'], verification_code):
+            # 인증 성공 - 실제 회원가입 진행
+            from utils.slack_helper import get_slack_members
+            
+            slack_members = get_slack_members()
+            slack_data = None
+            
+            if slack_members:
+                for member in slack_members:
+                    if member.get('email') == temp_signup['email']:
+                        slack_data = member
+                        break
+
+            # 사용자 생성
+            result = create_user(
+                temp_signup['name'], 
+                temp_signup['email'], 
+                temp_signup['password'], 
+                slack_data
+            )
+
+            if result['success']:
+                # 세션 정리
+                session.pop('temp_signup', None)
+                
+                return jsonify({
+                    'success': True,
+                    'message': '회원가입이 완료되었습니다!',
+                    'has_slack': result.get('has_slack', False)
+                }), 201
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': result.get('message')
+                }), 400
+        else:
+            return jsonify({
+                'success': False,
+                'message': '인증 코드가 올바르지 않거나 만료되었습니다'
+            }), 400
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'서버 오류: {str(e)}'
+        }), 500
+
+@auth_bp.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    """인증 코드 재발송"""
+    try:
+        temp_signup = session.get('temp_signup')
+        if not temp_signup:
+            return jsonify({
+                'success': False,
+                'message': '회원가입 세션이 없습니다'
+            }), 400
+
+        # 새 인증 코드 생성 및 발송
+        verification_code = generate_verification_code()
+        
+        if send_verification_email(temp_signup['email'], verification_code):
+            if store_verification_code(temp_signup['email'], verification_code):
+                return jsonify({
+                    'success': True,
+                    'message': '인증 코드가 재발송되었습니다'
+                }), 200
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': '인증 코드 저장에 실패했습니다'
+                }), 500
+        else:
+            return jsonify({
+                'success': False,
+                'message': '이메일 발송에 실패했습니다'
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'서버 오류: {str(e)}'
+        }), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -160,8 +238,6 @@ def login():
             'success': False,
             'message': f'서버 오류: {str(e)}'
         }), 500
-
-# =================== 새로 추가: Slack 동기화 엔드포인트 ===================
 
 @auth_bp.route('/sync-slack', methods=['POST'])
 def sync_slack():
