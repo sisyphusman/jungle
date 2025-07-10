@@ -26,14 +26,12 @@ class Config:
     # 워크스페이스 고정 설정 (선택사항)
     SLACK_TEAM_ID = os.environ.get('SLACK_TEAM_ID')  # 정글 워크스페이스 ID (설정하면 해당 워크스페이스로 제한)
     SLACK_TEAM_NAME = os.environ.get('SLACK_TEAM_NAME', 'jungle-til')  # 워크스페이스 이름
-    SLACK_INVITE_URL = os.environ.get('SLACK_INVITE_URL') or 'https://join.slack.com/t/tiljungle/shared_invite/zt-38u2ezmh3-CB_Ij~WODym_T7sOpujeFA'
-
-
+    SLACK_INVITE_URL = os.environ.get('SLACK_INVITE_URL') 
     # 서버 설정
-    BASE_URL = os.environ.get('BASE_URL') or 'http://localhost:5001'
+    BASE_URL = os.environ.get('BASE_URL')
     
-    SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
-    SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+    SMTP_SERVER = os.environ.get('SMTP_SERVER')
+    SMTP_PORT = int(os.environ.get('SMTP_PORT'))
     SMTP_EMAIL = os.environ.get('SMTP_EMAIL')
     SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD')  # 앱 비밀번호
 
