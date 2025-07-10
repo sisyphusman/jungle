@@ -210,7 +210,7 @@
             success: function (response) {
               if (response.success) {
                 alert("로그아웃되었습니다.");
-                window.location.replace = "/";
+                window.location.replace("/");
               } else {
                 alert("로그아웃 실패: " + response.message);
               }

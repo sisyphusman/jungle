@@ -29,6 +29,7 @@ def home(current_user):
 
 
 @route_bp.route("/post")
+@auth_required 
 def post():
     return render_template("post.html")
 
@@ -47,7 +48,8 @@ def mypage(current_user):
 
 
 @route_bp.route("/logout", methods=["POST"])
-def logout():
+@auth_required
+def logout(current_user):
     session.clear()  # 서버 세션 삭제
     response = jsonify({"success": True, "message": "로그아웃 되었습니다."})
     response.set_cookie(
@@ -55,13 +57,11 @@ def logout():
         '', 
         expires=0,
         httponly=True,
-        secure=True,  
+        secure=False,  
         samesite='Lax',
         path='/'  
     )
-    return jsonify({
-        "success": True
-    })
+    return response
 
 
 @route_bp.route("/qna")
