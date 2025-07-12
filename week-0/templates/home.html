@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous" />
+
+  <!-- fontawesome -->
+  <script src="https://kit.fontawesome.com/3ea215d505.js" crossorigin="anonymous"></script>
+
+  <title>Main Page</title>
+
+  <style>
+    .card {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container py-4 mt-3 position-relative bs-success" style="background-color: #D4FFCA">
+    <div class="text-center">
+      <div class="d-inline-flex align-items-center">
+        <a href="/home">
+          <img src="{{ url_for('static', filename='/images/jungle_logo.png')}}" alt="정글 이미지 로고" style="height: 60px"
+            class="me-3" />
+        </a>
+        <h1 class="text-center display-4 mb-0 fw-bold">TIL JUNGLE</h1>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="container my-5">
+    <div class="row align-items-center">
+      <div class="col-md-6 mb-2 mb-md-0">
+        <form class="d-flex" id="searchForm" style="max-width: 400px;">
+          <input type="text" class="form-control me-2" placeholder="제목 혹은 태그 검색" id="tagSearchInput" name="tag">
+          <button type="submit" class="btn btn-success text-nowrap">검색</button>
+        </form>
+      </div>
+
+      <div class="col-md-6 text-md-end text-center">
+        <a href="/qna" class="btn btn-info me-1">
+          <i class="fas fa-question-circle me-2"></i>Q&A 게시판
+        </a>
+        <a href="/mypage" class="btn btn-warning me-1">
+          <i class="fas fa-user me-2"></i>마이페이지
+        </a>
+        <a href="/post" class="btn btn-success">
+          <i class="fas fa-plus me-1"></i>TIL 생성
+        </a>
+      </div>
+    </div>
+  </div>
+  </div>
+
+
+
+  <!-- 카드 리스트 -->
+  <div class="container mt-3">
+    <div class="container my-5">
+      <h4 class="fw-bold mt-3">🏆 베스트 TIL</h4>
+    </div>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4" id="best-til-list">
+      {% for card in cards[0:4] %}
+      <div class="col mb-3">
+        <div class="d-flex justify-content-left mb-2">
+          <button class="btn btn-sm btn-primary me-1">Week 0</button>
+          <button class="btn btn-sm btn-success"
+            onclick="askQuestion('{{ card._id }}', '{{ card.author }}')">질문하기</button>
+          <button class="btn btn-sm btn-warning me-1 ms-1" onclick="collectConversation('{{ card._id }}')">대화수집</button>
+        </div>
+        <div class="card h-120 card-clickable" data-url="{{ card.url }}">
+          <img src="{{ card.img }}" class="card-img-top" style="height: 160px; object-fit: cover" alt="카드 이미지" />
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title" style="overflow-wrap: break-word">
+              {{ card.title }}
+            </h5>
+            <p class="card-text mb-1 text-muted">by {{ card.author }}</p>
+
+            <p class="card-text">
+              {% for tag in card.tag_list %}
+              <span class="badge bg-secondary">{{ tag }}</span>
+              {% endfor %}
+            </p>
+
+            <div class="mt-auto d-flex justify-content-between align-items-center">
+              <small class="text-muted">{{ card.date }}</small>
+              <div class="like-btn">
+                <span class="text-primary" data-id="{{ card._id }}">
+                  <i class="fas fa-thumbs-up"></i>
+                </span>
+                <span class="card-likes">{{ card.likes }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- 최신 TIL -->
+    <div class="container my-5 px-0">
+      <hr class="mb-5">
+      <h4 class="fw-bold mt-3">🔥 최신 TIL</h4>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4" id="latest-til-list">
+      {% for card in cards[4:] %}
+      <div class="col mb-3">
+        <div class="d-flex justify-content-left mb-2">
+          <button class="btn btn-sm btn-primary me-1">Week 0</button>
+          <button class="btn btn-sm btn-success"
+            onclick="askQuestion('{{ card._id }}', '{{ card.author }}')">질문하기</button>
+          <button class="btn btn-sm btn-warning me-1 ms-1" onclick="collectConversation('{{ card._id }}')">대화수집</button>
+        </div>
+        <div class="card h-120 card-clickable" data-url="{{ card.url }}">
+          <img src="{{ card.img }}" class="card-img-top" style="height: 160px; object-fit: cover" alt="카드 이미지" />
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title" style="overflow-wrap: break-word">
+              {{ card.title }}
+            </h5>
+            <p class="card-text mb-1 text-muted">by {{ card.author }}</p>
+
+            <p class="card-text">
+              {% for tag in card.tag_list %}
+              <span class="badge bg-secondary">{{ tag }}</span>
+              {% endfor %}
+            </p>
+
+            <div class="mt-auto d-flex justify-content-between align-items-center">
+              <small class="text-muted">{{ card.date }}</small>
+              <div class="like-btn">
+                <span class="text-primary" data-id="{{ card._id }}">
+                  <i class="fas fa-thumbs-up"></i>
+                </span>
+                <span class="card-likes">{{ card.likes }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+  <div id="scroll-anchor" class="my-4"></div>
+  </div>
+
+  <!-- bootstrap js -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- 검색 JS -->
+<script>
+  function createCardHtml(card) {
+    return `
+  <div class="col mb-3">
+    <div class="d-flex justify-content-left mb-2">
+      <button class="btn btn-sm btn-primary me-1">Week 0</button>
+      <button class="btn btn-sm btn-success" onclick="askQuestion('${card._id}', '${card.author}')">질문하기</button>
+      <button class="btn btn-sm btn-warning me-1 ms-1" onclick="collectConversation('${card._id}')">대화수집</button>
+    </div>
+    <div class="card h-120 card-clickable" data-url="${card.url}">
+      <img src="${card.img}" class="card-img-top" style="height: 160px; object-fit: cover" alt="카드 이미지" />
+      <div class="card-body d-flex flex-column">
+        <h5 class="card-title" style="overflow-wrap: break-word">${card.title}</h5>
+        <p class="card-text mb-1 text-muted">by ${card.author}</p>
+        <p class="card-text">
+          ${card.tag_list.map(tag => `<span class="badge bg-secondary">${tag}</span>`).join(" ")}
+        </p>
+        <div class="mt-auto d-flex justify-content-between align-items-center">
+          <small class="text-muted">${card.date}</small>
+          <div class="like-btn">
+            <span class="text-primary" data-id="${card._id}">
+              <i class="fas fa-thumbs-up"></i>
+            </span>
+            <span class="card-likes">${card.likes}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  }
+  let currentKeyword = '';
+
+  document.getElementById('searchForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const keyword = document.getElementById('tagSearchInput').value;
+
+    if (keyword.trim() === '') {
+      alert('검색어를 입력해주세요.');
+      return;
+    }
+
+    currentKeyword = keyword
+
+    $.ajax({
+      url: "/models/load_cards",  // POST로 전송
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ keyword: keyword }),
+      success: function (response) {
+        if (response.result === "success") {
+          console.log("카드 검색 성공:", response.cards);
+          renderCards(response.cards);
+          page = 2
+        } else {
+          alert("검색 실패: " + response.message);
+        }
+      },
+      error: function (xhr, status, error) {
+        alert("에러 발생: " + error);
+      }
+    });
+  });
+
+  // function collectConversation(cardId) {
+  //   $.ajax({
+  //     url: '/models/collect-conversation',
+  //     type: 'POST',
+  //     contentType: 'application/json',
+  //     data: JSON.stringify({ card_id: cardId }),
+  //     success: function (response) {
+  //       console.log(`=== ${response.card_title} 대화 수집 결과 ===`);
+  //       console.log('디버그 정보:', response.debug_info);
+
+  //       if (response.success) {
+  //         console.log(`전체 메시지: ${response.debug_info.total_messages}개`);
+  //         console.log(`카드별 필터링: ${response.debug_info.card_specific_messages}개`);
+  //         console.log(`최종 대화: ${response.conversation.length}개`);
+  //         console.log('대화 내용:');
+
+  //         response.conversation.forEach((msg, index) => {
+  //           console.log(`%c${index + 1}. [${msg.role}]%c: ${msg.text}`,
+  //             'color: #4CAF50; font-weight: bold',
+  //             'color: inherit');
+  //         });
+
+  //         alert(`${response.card_title} 관련 대화 ${response.conversation.length}개 수집! (개발자 도구 Console 확인)`);
+  //       } else {
+  //         console.error('대화 수집 실패:', response.message);
+  //         alert('대화 수집 실패: ' + response.message);
+  //       }
+  //     },
+  //     error: function (xhr) {
+  //       console.error('AJAX 오류:', xhr.responseText);
+  //       alert('대화 수집 중 오류가 발생했습니다.');
+  //     }
+  //   });
+  // }
+  function collectConversation(cardId) {
+    // 버튼 비활성화
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 수집 중...';
+    button.disabled = true;
+
+    $.ajax({
+      url: '/models/collect-conversation',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({ card_id: cardId }),
+      success: function (response) {
+        if (response.success && response.storage.saved) {
+          // 성공 시 간단한 모달 표시
+          showSimpleConversationModal(response);
+        } else {
+          alert('대화 수집 실패: ' + (response.message || '대화를 찾을 수 없습니다.'));
+        }
+      },
+      error: function (xhr) {
+        const res = xhr.responseJSON;
+        alert('대화 수집 실패: ' + (res?.message || '서버 오류'));
+      },
+      complete: function () {
+        // 버튼 복구
+        button.innerHTML = originalText;
+        button.disabled = false;
+      }
+    });
+  }
+
+
+  function showSimpleConversationModal(response) {
+    const { conversation, storage } = response;
+
+    // 대화 내용 포맷팅
+    const conversationHtml = conversation.map(msg => `
+        <div class="mb-3 p-3 border-start border-3 ${msg.role === '질문자' ? 'border-primary' : 'border-success'}">
+            <strong class="text-${msg.role === '질문자' ? 'primary' : 'success'}">
+                ${msg.role}:
+            </strong>
+            <div class="mt-1">${msg.text}</div>
+            <small class="text-muted">
+                ${new Date(parseFloat(msg.timestamp) * 1000).toLocaleString()}
+            </small>
+        </div>
+    `).join('');
+
+    // 저장 상태 메시지
+    const actionText = storage.action === 'created' ? '새로 저장' : '업데이트';
+
+    const modalHtml = `
+        <div class="modal fade" id="conversationModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-comments"></i> 
+                            대화 수집 완료 (${conversation.length}개 메시지)
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-success">
+                            <i class="fas fa-database"></i> 
+                            대화가 데이터베이스에 ${actionText}되었습니다! 
+                            (버전 ${storage.version})
+                        </div>
+                        
+                        <h6>대화 내용:</h6>
+                        ${conversationHtml}
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" onclick="publishToQnA('${storage.conversation_id}')">
+                            <i class="fas fa-share"></i> Q&A 게시판에 공개하기
+                        </button>
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 기존 모달 제거 후 새로 추가
+    $('#conversationModal').remove();
+    $('body').append(modalHtml);
+    $('#conversationModal').modal('show');
+  }
+
+  function publishToQnA(conversationId) {
+    if (!confirm('이 대화를 Q&A 게시판에 공개하시겠습니까?\n다른 사용자들이 이 대화를 볼 수 있게 됩니다.')) {
+      return;
+    }
+
+    $.ajax({
+      url: `/models/conversation/${conversationId}/publish`,
+      type: 'POST',
+      success: function (response) {
+        if (response.success) {
+          alert('✅ Q&A 게시판에 공개되었습니다!\n다른 사용자들이 이 대화를 참고할 수 있습니다.');
+          $('#conversationModal').modal('hide');
+        } else {
+          alert('공개 실패: ' + response.message);
+        }
+      },
+      error: function (xhr) {
+        const res = xhr.responseJSON;
+        alert('공개 실패: ' + (res?.message || '서버 오류'));
+      }
+    });
+  }
+
+  // 카드 검색시 render하는 함수
+
+  function renderCards(cards) {
+    const bestList = document.getElementById("best-til-list");
+    const latestList = document.getElementById("latest-til-list");
+
+    // 제목
+    const bestTitle = document.querySelector("h4.fw-bold.mt-3"); // 📝 베스트 TIL 제목
+    const latestTitle = document.querySelectorAll("h4.fw-bold.mt-3")[1]; // 📝 최신 TIL 제목
+
+    // hr
+    const hrElement = document.querySelector("hr.mb-5");
+
+    // 1. 기존 리스트 제거
+    bestList.innerHTML = "";
+    latestList.innerHTML = "";
+
+    // 2. 기존 제목, hr 숨김
+    if (bestTitle) bestTitle.style.display = "none";
+    if (latestTitle) latestTitle.style.display = "none";
+    if (hrElement) hrElement.style.display = "none";
+
+    // 3. 검색 결과 div 추가 (카드 리스트 바로 위)
+    const latestContainer = latestList.parentNode;
+    let searchResultTitle = document.getElementById("search-result-title");
+
+    if (!searchResultTitle) {
+      searchResultTitle = document.createElement("h4");
+      searchResultTitle.id = "search-result-title";
+      searchResultTitle.className = "fw-bold my-5";
+      searchResultTitle.innerHTML = "🔍 검색 결과";
+
+      // 최신 TIL 리스트 바로 위에 삽입
+      latestContainer.insertBefore(searchResultTitle, latestList);
+    } else {
+      searchResultTitle.style.display = "block";
+    }
+
+    // 4. 검색 결과 없으면 메시지 표시
+    if (cards.length === 0) {
+      latestList.innerHTML = "<p class='text-center'>검색 결과가 없습니다.</p>";
+      return;
+    }
+
+    // 5. 검색된 카드만 최신 TIL 리스트에 렌더링
+    for (let card of cards) {
+      const cardHtml = createCardHtml(card);
+      latestList.innerHTML += cardHtml;
+    }
+  }
+</script>
+
+<!-- 무한 스크롤 JS -->
+<script>
+  let page = 2;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting) {
+        loadMoreCards();
+      }
+    },
+    {
+      rootMargin: "0px 0px 100px 0px",
+    }
+  );
+
+  observer.observe(document.querySelector("#scroll-anchor"));
+
+
+  function askQuestion(cardId, authorName) {
+    console.log('질문하기 클릭:', cardId, authorName);
+
+    $.ajax({
+      url: '/models/create-dm',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({
+        card_id: cardId,
+        author_name: authorName
+      }),
+      xhrFields: {
+        withCredentials: true
+      },
+      success: function (response) {
+        if (response.success) {
+          alert('질문방이 생성되었습니다! Slack에서 확인해보세요.');
+          console.log('DM 생성 성공:', response);
+        } else {
+          alert('질문방 생성 실패: ' + response.message);
+          console.log('DM 생성 실패:', response);
+        }
+      },
+      error: function (xhr, status, error) {
+        console.error('AJAX 오류:', xhr.responseText);
+        const res = xhr.responseJSON;
+        if (res && res.message) {
+          alert('질문방 생성 실패: ' + res.message);
+        } else {
+          alert('질문방 생성 중 오류가 발생했습니다.');
+        }
+      }
+    });
+  }
+
+  observer.observe(document.querySelector("#scroll-anchor"));
+
+  function loadMoreCards() {
+    $.ajax({
+      type: "GET",
+      url: `/models/load_cards?page=${page}&keyword=${encodeURIComponent(currentKeyword)}`,
+      success: function (response) {
+        if (response.result === "success") {
+          const cards = response.cards;
+          if (cards.length === 0) {
+            observer.disconnect();
+            return;
+          }
+          for (let card of cards) {
+            const cardHtml = `
+                    <div class="col mb-3">
+                      <div class="d-flex justify-content-left mb-2">
+                      <button class="btn btn-sm btn-primary me-1">Week 0</button>
+                      <button class="btn btn-sm btn-success"
+            onclick="askQuestion('${card._id}', '${card.author}')">질문하기</button>
+                      <button class="btn btn-sm btn-warning me-1 ms-1" onclick="collectConversation('${card._id}')">대화수집</button>
+                    </div>
+                  <div class="col">
+                    <div class="card h-120 card-clickable" data-url="${card.url}">
+                      <img
+                        src="${card.img}"
+                        class="card-img-top"
+                        style="height: 160px; object-fit: cover"
+                        alt="카드 이미지"
+                      />
+                      <div class="card-body d-flex flex-column">
+                        <h5 class="card-title" style="overflow-wrap: break-word">
+                          ${card.title}
+                        </h5>
+
+                        <p class="card-text mb-1 text-muted">by ${card.author
+              }</p>
+
+                        <p class="card-text">
+                          ${card.tag_list
+                .map(
+                  (tag) =>
+                    `<span class="badge bg-secondary">${tag}</span>`
+                )
+                .join(" ")}
+                        </p>
+
+                        <div class="mt-auto d-flex justify-content-between align-items-center">
+                          <small class="text-muted">${card.date}</small>
+                          <div class="like-btn">
+                            <span class="text-primary" data-id="${card._id}">
+                              <i class="fas fa-thumbs-up"></i>
+                            </span>
+                            <span class="card-likes">${card.likes}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+            $("#latest-til-list").append(cardHtml);
+          }
+          page += 1;
+        }
+      },
+    });
+  }
+
+  $(document).on("click", ".card-clickable", function () {
+    const isLikeBtn = $(event.target).closest(".text-primary").length > 0;
+    if (isLikeBtn) {
+      return;
+    }
+    const url = $(this).data("url");
+    if (url) {
+      window.open(url, "_blank");
+    } else {
+      alert("url을 찾을 수 없습니다.")
+    }
+  });
+
+  $(document).on("click", ".text-primary", function () {
+    const cardId = $(this).data("id");
+    const likeCountSpan = $(this).siblings(".card-likes");
+
+    $.ajax({
+      url: `/models/like_card/${cardId}`,
+      type: "POST",
+      xhrFields: { withCredentials: true },
+      // TODO : 본인 글에 추천을 눌렀을 경우 본인 글은 추천할 수 없습니다 라는 alert 생성
+      success: function (response) {
+        if (response.success) {
+          likeCountSpan.text(response.likes);
+        } else {
+          alert("좋아요 실패: " + response.message);
+        }
+      },
+      error: function (xhr) {
+        const res = xhr.responseJSON;
+        if (res && res.message) {
+          alert("좋아요 실패: " + res.message);
+        } else {
+          alert("좋아요 요청 중 오류가 발생했습니다.");
+        }
+      },
+    });
+  });
+</script>
+</body>
+
+</html>

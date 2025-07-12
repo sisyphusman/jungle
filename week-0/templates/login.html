@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous" />
+  <script src="https://kit.fontawesome.com/3ea215d505.js" crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <title>Login page</title>
+  <style>
+    .slack-btn {
+      background-color: #4A154B;
+      border-color: #4A154B;
+      color: white;
+      transition: all 0.2s ease;
+    }
+
+    .slack-btn:hover {
+      background-color: #611f69;
+      border-color: #611f69;
+      color: white;
+      transform: translateY(-1px);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #dee2e6;
+    }
+
+    .divider span {
+      padding: 0 15px;
+      color: #6c757d;
+      font-size: 14px;
+    }
+
+    .login-container {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .error-alert {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container-fluid py-4">
+    <div class="d-flex justify-content-center align-items-center">
+      <img src="{{ url_for('static', filename='/images/jungle_logo.png')}}" alt="정글 이미지 로고" style="height: 60px"
+        class="me-3" />
+      <h1 class="text-center display-4 mb-0">TIL JUNGLE</h1>
+    </div>
+  </div>
+
+  <div class="container mt-3">
+    <div class="row justify-content-center">
+      <div class="col-md-6 col-lg-4">
+        <div class="login-container">
+          <h2 class="text-center mb-4">로그인</h2>
+
+          <!-- 에러 메시지 표시 -->
+          <div id="errorAlert" class="alert alert-danger error-alert" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="errorMessage"></span>
+          </div>
+
+          <!-- 워크스페이스 가입 안내 -->
+          <div class="alert alert-info mb-4">
+            <h6 class="alert-heading">
+              <i class="fas fa-info-circle me-2"></i>처음 방문하시나요?
+            </h6>
+            <p class="mb-2 small">TIL Jungle을 이용하려면 먼저 정글 워크스페이스에 가입해야 합니다.</p>
+            <button id="joinWorkspaceBtn" class="btn btn-outline-primary btn-sm">
+              <i class="fab fa-slack me-1"></i>정글 워크스페이스 가입하기
+            </button>
+          </div>
+
+          <!-- 구분선 -->
+          <div class="divider">
+            <span>또는</span>
+          </div>
+
+          <!-- 기존 이메일/비밀번호 로그인 -->
+          <form id="loginForm">
+            <div class="mb-3">
+              <label for="email" class="form-label">이메일</label>
+              <input type="email" class="form-control" id="email" placeholder="이메일을 입력하세요" required />
+            </div>
+
+            <div class="mb-3">
+              <label for="password" class="form-label">비밀번호</label>
+              <input type="password" class="form-control" id="password" placeholder="비밀번호를 입력하세요" required />
+            </div>
+
+            <button type="submit" class="btn btn-success w-100 mt-4">
+              <i class="fas fa-sign-in-alt me-2"></i>
+              이메일로 로그인
+            </button>
+          </form>
+
+          <!-- 회원가입 링크 -->
+          <div class="text-center mt-4">
+            <span>아직 회원이 아니신가요? </span>
+            <a href="/signup" class="text-primary fw-bold">회원가입</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SLACK_INVITE_URL = '{{ config.SLACK_INVITE_URL }}';
+
+    $(document).ready(function () {
+      // 워크스페이스 가입 버튼 클릭
+      $('#joinWorkspaceBtn').click(function () {
+        // 1. 새 탭에서 워크스페이스 초대 링크 열기
+        window.open(SLACK_INVITE_URL, '_blank');
+
+        // 2. 버튼 상태 변경 (기존과 동일)
+        $(this).html('<i class="fas fa-external-link-alt me-1"></i>새 탭에서 가입 중...');
+        $(this).removeClass('btn-outline-primary').addClass('btn-info');
+        $(this).prop('disabled', true);
+
+        // 3. 안내 메시지 업데이트
+        if (!$('#joinHint').length) {
+          $(this).parent().append(`
+      <div id="joinHint" class="alert alert-success mt-3">
+        <h6 class="alert-heading">
+          <i class="fas fa-info-circle me-2"></i>다음 단계
+        </h6>
+        <p class="mb-2 small">
+          1. 새 탭에서 워크스페이스 가입을 완료하세요<br>
+          2. 아래 회원가입 버튼을 클릭하여 계정을 생성하세요<br>
+          3. 가입 시 <strong>워크스페이스와 동일한 이메일</strong>을 사용하세요
+        </p>
+      </div>
+    `);
+        }
+
+        // 4. 2초 후 회원가입 페이지로 리다이렉트
+        setTimeout(function () {
+          window.location.href = '/signup';
+        }, 2000);
+
+        // 5. 10초 후 버튼 원상복구 (기존과 동일)
+        setTimeout(function () {
+          $('#joinWorkspaceBtn').html('<i class="fab fa-slack me-1"></i>정글 워크스페이스 가입하기');
+          $('#joinWorkspaceBtn').removeClass('btn-info').addClass('btn-outline-primary');
+          $('#joinWorkspaceBtn').prop('disabled', false);
+        }, 10000);
+      });
+
+      // URL 파라미터에서 에러 메시지 확인
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+
+      if (error) {
+        showError(getErrorMessage(error));
+      }
+
+      // 이메일/비밀번호 로그인 폼 처리 (기존 그대로)
+      $("#loginForm").submit(function (e) {
+        e.preventDefault();
+
+        const email = $("#email").val();
+        const password = $("#password").val();
+
+        if (!email || !password) {
+          showError("이메일과 비밀번호를 입력해주세요.");
+          return;
+        }
+
+        // 로딩 상태 표시
+        const submitBtn = $(this).find('button[type="submit"]');
+        const originalText = submitBtn.html();
+        submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>로그인 중...');
+        submitBtn.prop('disabled', true);
+
+        $.ajax({
+          url: "/auth/login",
+          type: "POST",
+          contentType: "application/json",
+          data: JSON.stringify({ email: email, password: password }),
+          xhrFields: {
+            withCredentials: true,
+          },
+          success: function (response) {
+            if (response.success) {
+              // 성공 메시지 표시 후 리다이렉트
+              showSuccess("로그인 성공! 메인 페이지로 이동합니다.");
+              setTimeout(() => {
+                window.location.href = "/home";
+              }, 1000);
+            } else {
+              showError("로그인 실패: " + response.message);
+            }
+          },
+          error: function (xhr) {
+            const res = xhr.responseJSON;
+            if (res && res.message) {
+              showError("로그인 실패: " + res.message);
+            } else {
+              showError("로그인 요청 중 오류가 발생했습니다.");
+            }
+          },
+          complete: function () {
+            // 로딩 상태 해제
+            submitBtn.html(originalText);
+            submitBtn.prop('disabled', false);
+          }
+        });
+      });
+
+      // 에러 메시지 표시 함수
+      function showError(message) {
+        $("#errorMessage").text(message);
+        $("#errorAlert").removeClass('alert-success').addClass('alert-danger');
+        $("#errorAlert").find('i').removeClass('fa-check-circle').addClass('fa-exclamation-triangle');
+        $("#errorAlert").slideDown();
+
+        // 5초 후 자동 숨김
+        setTimeout(() => {
+          $("#errorAlert").slideUp();
+        }, 5000);
+      }
+
+      // 성공 메시지 표시 함수
+      function showSuccess(message) {
+        $("#errorMessage").text(message);
+        $("#errorAlert").removeClass('alert-danger').addClass('alert-success');
+        $("#errorAlert").find('i').removeClass('fa-exclamation-triangle').addClass('fa-check-circle');
+        $("#errorAlert").slideDown();
+      }
+
+      // 에러 코드에 따른 메시지 반환 (Slack 에러 추가)
+      function getErrorMessage(errorCode) {
+        const errorMessages = {
+          // 기존 에러
+          'slack_login_denied': 'Slack 로그인이 취소되었습니다.',
+          'no_auth_code': 'Slack 인증 코드를 받지 못했습니다.',
+          'invalid_state': '보안 검증에 실패했습니다. 다시 시도해주세요.',
+          'token_exchange_failed': 'Slack 토큰 교환에 실패했습니다.',
+          'user_info_failed': 'Slack 사용자 정보를 가져오지 못했습니다.',
+          'user_creation_failed': '사용자 계정 생성에 실패했습니다.',
+          'callback_error': 'Slack 로그인 처리 중 오류가 발생했습니다.',
+          // 새로 추가한 에러
+          'wrong_workspace': '잘못된 워크스페이스입니다. 정글 워크스페이스에 가입 후 로그인해주세요.',
+          'oauth_denied': '로그인이 취소되었습니다.',
+          'missing_code': '인증 코드가 누락되었습니다.',
+          'user_save_failed': '사용자 정보 저장에 실패했습니다.'
+        };
+
+        return errorMessages[errorCode] || '알 수 없는 오류가 발생했습니다.';
+      }
+    });
+  </script>
+</body>
+
+</html>
