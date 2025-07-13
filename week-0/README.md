@@ -15,8 +15,8 @@
     &nbsp;
     
     #Login Page  
-    <img width="1904" height="1008" alt="login" src="https://github.com/user-attachments/assets/1840cbaf-8479-4adc-aea0-a330a6cd16de" />
-        
+    <img width="1904" height="1008" alt="login" src="https://github.com/user-attachments/assets/568564fb-ff17-4675-aae8-edc1b3280bef" />
+
     &nbsp;
     
     #Main Page  
@@ -25,13 +25,14 @@
     &nbsp;
     
     #My Page  
-    <img width="1095" height="1014" alt="mypage" src="https://github.com/user-attachments/assets/7143b35f-becf-4a2b-9f78-a71335c4ff5a" />
+    <img width="1095" height="1014" alt="mypage" src="https://github.com/user-attachments/assets/16c27779-0362-48a6-bef3-35f106b34054" />
     <img width="1361" height="772" alt="my_post_list" src="https://github.com/user-attachments/assets/663d081b-3b3d-4550-81ca-57a580c50752" />
         
     &nbsp;
     
     #Slack DM 1:1 Q&A  
-    <img width="611" height="358" alt="slack_ask_good" src="https://github.com/user-attachments/assets/831b8e13-fd2a-4ee4-b39e-0d5dc057f601" />
+    <img width="611" height="358" alt="slack_ask_good" src="https://github.com/user-attachments/assets/20dc521a-f1f5-434f-8206-13d70d1b9f5b" />
+
     
     &nbsp;
     
