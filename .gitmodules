@@ -1,6 +1,8 @@
 [submodule "external/function_visualizer"]
 	path = external/function_visualizer
 	url = https://github.com/krafton-jungle/function_visualizer.git
+	branch = master
 [submodule "external/Time-Space-Complexity-Check"]
 	path = external/Time-Space-Complexity-Check
 	url = https://github.com/IIIBreakeRIII/Time-Space-Complexity-Check
+	branch = main
