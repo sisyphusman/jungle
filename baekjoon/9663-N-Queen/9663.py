@@ -16,7 +16,7 @@ def put():
 def set(i: int):
     # i열에 알맞는 위치에 퀸을 배치
     for j in range(n):
-        if(         flag_a[j]                   # j행에 퀸을 배치하지 않았으면
+        if(     not flag_a[j]                   # j행에 퀸을 배치하지 않았으면
             and not flag_b[i + j]               # 오른쪽 대각선
             and not flag_c[n - 1 - i + j]):     # 왼쪽 대각선
             pos[i] = j                          # 퀸을 j행에 배치
