@@ -1,0 +1,3 @@
+[submodule "external/function_visualizer"]
+	path = external/function_visualizer
+	url = https://github.com/krafton-jungle/function_visualizer.git
