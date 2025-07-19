@@ -10,7 +10,7 @@ def set_io():
 def input(): return sys.stdin.readline().strip()
 def get_int(): return int(input())
 def get_ints(): return map(int, input().split())
-def get_int_list(): return list(get_ints())
+def get_int_list(): return list(map(int, input().split()))
 def get_str_list(): return list(input().split())
 
 # 배열 내 두가지 값을 더해서 0에 가까운 값을 찾는 수 찾기
