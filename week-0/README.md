@@ -17,22 +17,22 @@ TIL-JUNGLE Slack 워크스페이스에 참여한 후, TIL 작성자와 질문하
 
 |        로그인         |        회원가입        |
 | :------------------: | :--------------------: |
-| <img src="/assets/로그인.png" width="500px"> | <img src="/assets/회원가입.png" width="500px"> |
+| <img src="./assets/로그인.png" width="500px"> | <img src="./assets/회원가입.png" width="500px"> |
 
 |         Slack 워크스페이스 참여         |        Slack 로그인        |
 | :------------------: | :--------------------: |
-| <img src="/assets/슬랙초대.png" width="500px"> | <img src="/assets/슬랙로그인.png" width="500px"> |
+| <img src="./assets/슬랙초대.png" width="500px"> | <img src="./assets/슬랙로그인.png" width="500px"> |
 
 |        이메일 인증         |        인증 코드 확인        |
 | :------------------: | :--------------------: |
-| <img src="/assets/이메일인증.png" width="500px"> | <img src="/assets/인증코드확인.png" width="500px"> |
+| <img src="./assets/이메일인증.png" width="500px"> | <img src="./assets/인증코드확인.png" width="500px"> |
 
 
 ## TIL 
 
 |        메인         |         원본 링크 이동        |
 | :------------------: | :--------------------: |
-| <img src="/assets/메인.png" width="500px"> | <img src="/assets/원본링크이동.png" width="500px"> |
+| <img src="./assets/메인.png" width="500px"> | <img src="./assets/원본링크이동.png" width="500px"> |
 
 
 BEST TIL : 좋아요 순 상위 4개의 TIL 정렬 <br>
@@ -45,7 +45,7 @@ BEST TIL : 좋아요 순 상위 4개의 TIL 정렬 <br>
 
 |        TIL 카드 생성         |         마이 페이지        |
 | :------------------: | :--------------------: |
-| <img src="/assets/TIL생성.png" width="500px"> | <img src="/assets/마이페이지.png" width="500px"> |
+| <img src="./assets/TIL생성.png" width="500px"> | <img src="./assets/마이페이지.png" width="500px"> |
 
 - **카드 생성 시 validators를 통한 올바른 URL 검증 수행**
 - **Slack User 정보를 바탕으로 사용자별 모든 정보 렌더링**
@@ -54,7 +54,7 @@ BEST TIL : 좋아요 순 상위 4개의 TIL 정렬 <br>
 
 |        질문하기        |         대화 내용 수집        |
 | :------------------: | :--------------------: |
-| <img src="/assets/질문하기.png" width="500px"> | <img src="/assets/대화내용수집.png" width="500px"> |
+| <img src="./assets/질문하기.png" width="500px"> | <img src="./assets/대화내용수집.png" width="500px"> |
 
 질문하기 버튼 클릭 시 해당 TIL 작성자와의 1:1 DM 채널 생성 <br>
 대화수집 버튼 클릭 시 작성자와 대화한 모든 기록을 수집하며 데이터베이스에 저장, 수집 시점을 바탕으로 버전 별 관리
@@ -66,7 +66,7 @@ BEST TIL : 좋아요 순 상위 4개의 TIL 정렬 <br>
 
 |        Q&A 게시판        |         Q&A 내용 공개        |
 | :------------------: | :--------------------: |
-| ![](/assets/QNA게시판.png) | ![](/assets/QNA내용공개.png) |
+| ![](./assets/QNA게시판.png) | ![](./assets/QNA내용공개.png) |
 
 수집한 대화를 바탕으로 비공개 대화를 전체 공개 게시판에 등록 <br>
 다른 유저가 대화 내용에 접근할 수 있도록 구현
