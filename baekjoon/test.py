@@ -1,5 +1,4 @@
 import sys
-sys.setrecursionlimit(100000)
 
 def set_io():
     try:   
@@ -14,25 +13,27 @@ def get_ints(): return map(int, input().split())
 def get_int_list(): return list(map(int, input().split()))
 def get_str_list(): return list(input().split())
 
-# a의 b제곱을 하는 재귀 함수
-def my_pow(a, b, mod):
-    if b == 0:
-        return 1
-    
-    half = my_pow(a, b // 2, mod)  
-    result = (half * half) % mod
+def sum_array(arr, left, right):
+    if left == right:
+        return arr[left]
 
-    if b % 2 == 1:
-        result = (result * a ) % mod
+    mid = (left + right) // 2
+    left_sum = sum_array(arr, left, mid)        # 왼쪽 절반: left ~ mid 이다
+    right_sum = sum_array(arr, mid + 1, right)  # 오른쪽 절반: mid + 1 ~ right이다
 
-    return result
+    return left_sum + right_sum
+
+def gcd(a, b):
+    return a if b == 0 else gcd(b, a % b)
+
 
 def main():
     set_io()
 
-    a, b, c = get_ints()   
+    arr = get_int_list()
+    #print(sum_array(arr, 0, 4))
 
-    print( my_pow(a,b,c))
-
+    print(gcd(12, 13))
+    
 if __name__ == "__main__":
     main()
