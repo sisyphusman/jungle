@@ -17,8 +17,12 @@ def bfs(start):
 
         for neighbor in graph[now]:
             if dist[neighbor] == -1:
-                dist[neighbor] = dist[now]
+                dist[neighbor] = dist[now] + 1
                 queue.append(neighbor)
+    
+set_io()
+
+input = sys.stdin.readline
 
 n, m, k, x = map(int, input().split())
 graph = [[] for _ in range(n + 1)]
