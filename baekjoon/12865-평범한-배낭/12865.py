@@ -21,6 +21,8 @@ for i in range(N):
     lst.append([w, v])
     
 # DP (i = 물건의 번호, j = 무게 용량)
+# 이전 상태를 보려면 i - 1, 이전 상태에서는 물건이 없을테니 -w, 값을 가져와서 +v 한 것이 지금 상태
+ 
 for i in range(1, N + 1):                                       # 1번째 물건부터 N번째 물건까지
     for j in range(1, K + 1):                                   # 배낭 용량 1부터 K까지 고려
         w = lst[i][0]                                           # i 번째 물건의 무게
