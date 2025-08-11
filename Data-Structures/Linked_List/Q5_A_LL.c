@@ -8,6 +8,7 @@ Purpose: Implementing the required functions for Question 5 */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 //////////////////////////////////////////////////////////////////////////////////
 
@@ -38,7 +39,7 @@ int removeNode(LinkedList *ll, int index);
 
 int main()
 {
-	int c, i;
+	int c = 1, i;
 	LinkedList ll;
 	LinkedList resultFrontList, resultBackList;
 
@@ -100,9 +101,40 @@ int main()
 
 //////////////////////////////////////////////////////////////////////////////////
 
+
+// 절반을 나눠서 반은 Front, 반은 Back, 홀수일때 Front가 더 많음
 void frontBackSplitLinkedList(LinkedList *ll, LinkedList *resultFrontList, LinkedList *resultBackList)
 {
-	/* add your code here */
+	ListNode* cur = ll->head;
+
+	// 리스트가 비어있으면 종료
+	if (cur == NULL)
+	{
+		return;
+	}
+
+	int limit = ll->size;
+	int front_size = ll->size / 2;
+
+	// 홀수일때 front 사이즈를 1 키움
+	if (ll->size % 2 == 1)
+	{
+		front_size++;
+	}
+
+	int back_size = limit - front_size;
+
+	for (int i = 0; i < front_size; i++)
+	{
+		insertNode(resultFrontList, resultFrontList->size, cur->item);		
+		cur = cur->next;
+	}
+
+	for (int i = 0; i < back_size; i++)
+	{
+		insertNode(resultBackList, resultBackList->size, cur->item);
+		cur = cur->next;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

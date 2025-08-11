@@ -101,9 +101,36 @@ int main()
 
 //////////////////////////////////////////////////////////////////////////////////
 
+// 1번 리스트에 2번 리스트 노드를 정렬하면서 추가한다
+// 2번 리스트가 더 길면 남게 된다
 void alternateMergeLinkedList(LinkedList *ll1, LinkedList *ll2)
 {
-    /* add your code here */
+	ListNode* p1 = ll1->head;
+	ListNode* p2 = ll2->head;
+
+	int idx1 = 1;
+	int limit = ll1->size;
+	
+	for(int i = 0; i < limit; i++)
+	{			
+		// p1, p2가 비어있으면 종료
+		if (p1 == NULL || p2 == NULL)
+			break;
+
+		// 삭제 이후 끊기지 않기 위해 임시 저장
+		ListNode* next_temp = p2->next;
+
+		// 리스트 1번에 홀수 인덱스를 저장
+		insertNode(ll1, idx1, p2->item);
+		removeNode(ll2, 0);
+
+		// 삭제 이후 노드 재연결
+		p1 = p1->next;
+		p2 = next_temp;
+
+		// 1,3,5,7 번마다 저장하기 위하여 인덱스 증가
+		idx1 += 2;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

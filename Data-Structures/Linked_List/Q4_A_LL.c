@@ -86,7 +86,48 @@ int main()
 
 void moveEvenItemsToBack(LinkedList *ll)
 {
-	/* add your code here */
+	ListNode* cur = ll->head;
+	ListNode* temp = NULL;
+
+	int limit = ll->size;
+	int idx = 0;						// idx는 이동 이후 위치를 기록하는 변수 
+	int b_reset = 0;					// 이동이 되었음을 알리는 변수
+
+	for (int i = 0; i < limit; i++)
+	{
+		if (cur == NULL)
+		{
+			return;
+		}
+
+		// 순회 하는 노드의 아이템이 짝수일때 아이템 뒤로 추가
+		if (cur->item % 2 == 0)
+		{
+			temp = cur->next;
+
+			insertNode(ll, ll->size, cur->item);
+			removeNode(ll, idx);
+			
+			// 노드 포인터 이동
+			cur = temp;
+			
+			// 인덱스 초기화
+			b_reset = 1;
+		}
+		else
+		{
+			cur = cur->next;
+		}
+
+		if (b_reset == 0)
+		{
+			idx++;
+		}
+		else
+		{
+			b_reset = 0;
+		}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

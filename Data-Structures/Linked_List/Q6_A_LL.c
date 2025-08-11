@@ -86,9 +86,51 @@ int main()
 
 ////////////////////////////////////////////////////////////////////////
 
+// 맥스값 찾아서 맨 앞으로 이동, 나머지는 그대로
 int moveMaxToFront(ListNode **ptrHead)
-{
-    /* add your code here */
+{	
+	// ptrhead의 자체의 주소가 없거나 ptrhead가 가지고 있는 포인터가 가리키는 주소가 없거나, 한 개의 노드만 있을때 종료
+	if (ptrHead == NULL || (*ptrHead) == NULL || (*ptrHead)->next == NULL)
+	{
+		return -1;
+	}
+
+	ListNode* cur = (*ptrHead)->next;
+	ListNode* prev = *ptrHead;
+	ListNode* max_prev = NULL;
+	ListNode* max_node = NULL;
+
+	// int 최솟값 = 처음 노드 가정
+	int max = (*ptrHead)->item;
+
+	// 마지막 전 노드까지 순회
+	while(cur != NULL)
+	{
+		if (cur->item > max)
+		{
+			max = cur->item;
+			max_prev = prev;		// cur이 최대면, 그 이전 노드가 max_prev
+		}
+
+		// 진행
+		prev = cur;
+		cur = cur->next;	
+	}
+
+	if (max_prev == NULL)			// 최대가 맨 앞에 있으면 끝
+		return 0;			
+
+	// 0. max_node 설정
+	max_node = max_prev->next;
+
+	// 1. max_prev의 next를 재설정
+	max_prev->next = max_node->next;
+
+	// 2. max 노드가 이전 첫번째 노드를 가르킴
+	max_node->next = *ptrHead; 
+
+	// 3. max 노드가 첫 헤드의 노드가 됨
+	*ptrHead = max_node;
 }
 
 //////////////////////////////////////////////////////////////////////////////////
