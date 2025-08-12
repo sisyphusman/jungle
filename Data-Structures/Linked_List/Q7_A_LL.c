@@ -88,7 +88,32 @@ int main()
 // 노드 뒤집는 것을 함수로 만들기
 void RecursiveReverse(ListNode **ptrHead)
 {
+	if (*ptrHead == NULL || (*ptrHead)->next == NULL)
+	{
+		return;
+	}
+
+	// 현재 노드
+	ListNode* first = *ptrHead;
+
+	// 현재 노드의 다음 노드 → 뒤집은 뒤 새 head가 될 부분
+	ListNode* next_node  = first->next;
+
+	// 나머지 리스트
+	RecursiveReverse(&next_node);
+
+	// 참조하는 대상의 다음은 참조하는 대상을 가르킴 (뒤집어짐)
+	first->next->next = first;
+
+	// 참조하는 대상의 다음을 삭제
+	first->next = NULL;
+
+	//printf("%d-%d ", (*ptrHead)->item, next_node->item);
+
+	// 다음 노드를 현재 포인터가 가리키도록 변경
+	*ptrHead = next_node;	
 	
+	printf("%d-%d ", (*ptrHead)->item, next_node->item);
 }
 
 //////////////////////////////////////////////////////////////////////////////////

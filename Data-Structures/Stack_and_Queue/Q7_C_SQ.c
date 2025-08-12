@@ -101,10 +101,48 @@ int main()
 	return 0;
 }
 
+// {[]()[]}
 ////////////////////////////////////////////////////////////
 int balanced(char *expression)
 {
-/* add your code here */
+	Stack s;
+
+	s.ll.head = NULL;
+	s.ll.size = 0;
+
+	int idx = 0;
+
+	while(expression[idx] != '\0')
+	{
+		char c = expression[idx];
+		int t;
+
+		if (c == '(' || c == '{' || c == '[') {
+            push(&s, c);
+		}
+		else if (c == ')' || c == '}' || c == ']') {
+			t = pop(&s);
+			if (!((t == '(' && c == ')') ||							// 최근에 들어간 것과 비교 후 쌍이 아니면 실패
+				(t == '{' && c == '}') ||
+				(t == '[' && c == ']'))) 
+			{
+				return 1;
+			}
+		}
+
+	idx++;
+	
+	}
+
+	// return 0 - 성공, return 1 - 실패
+	if (isEmptyStack(&s))
+	{
+		return 0;
+	}
+	else
+	{
+		return 1;
+	}
 }
 
 ////////////////////////////////////////////////////////////

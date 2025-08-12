@@ -101,9 +101,49 @@ int main()
 
 /////////////////////////////////////////////////////////////////////////////////
 
+// 스택에 담긴 데이터들이 짝수거나, 각각 2개씩 -1씩 차이 나는지 확인
 int isStackPairwiseConsecutive(Stack *s)
 {
-  /* add your code here */
+	if (s == NULL)
+	{
+		return 0;
+	}
+
+	int list_size = s->ll.size;
+	ListNode* cur = NULL;
+	
+	Stack temp;
+	temp.ll.head = NULL;
+	temp.ll.size = 0;
+	temp.ll.tail = NULL;
+
+	if (list_size % 2 != 0)
+	{
+		return 0;
+	}
+
+	int is_pairwise = 1;
+
+	while (!isEmptyStack(s))
+	{
+		int a = pop(s);
+		push(&temp, a);
+
+		int b = pop(s);
+		push(&temp, b);
+
+		if (abs(a - b) != 1)
+		{
+			is_pairwise = 0;
+		}
+	}
+
+	while (!isEmptyStack(s))
+	{
+		push(s, pop(&temp));
+	}
+
+	return is_pairwise;
 }
 
 //////////////////////////////////////////////////////////////////////////////////
