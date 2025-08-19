@@ -9,6 +9,12 @@ def set_io():
 set_io()
 input = sys.stdin.readline
 
-n = input().strip()
+n = int(input().strip())
+total = 0
 
-print(ord(n))
+my_str = input().strip()
+
+for var in my_str:
+    total += int(var)
+
+print(total)

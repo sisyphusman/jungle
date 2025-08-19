@@ -9,6 +9,12 @@ def set_io():
 set_io()
 input = sys.stdin.readline
 
-n = input().strip()
+lst = list(range(1, 31))
 
-print(ord(n))
+for _ in range(28):
+    n = int(input())
+    if (lst.count(n)):
+        lst.remove(n)
+
+for var in lst:
+    print(var)

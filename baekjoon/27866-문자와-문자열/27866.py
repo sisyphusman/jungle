@@ -9,6 +9,6 @@ def set_io():
 set_io()
 input = sys.stdin.readline
 
-n = input().strip()
-
-print(ord(n))
+lst = list(input())
+n = int(input())
+print(lst[n - 1])
