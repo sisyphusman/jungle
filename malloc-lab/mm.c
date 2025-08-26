@@ -107,7 +107,10 @@ static void* extend_heap(size_t words)                                  // 힙 �
     char* bp;
     size_t size;
 
-    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;           // words가 홀수이면 +1해서 짝수로 만들어준다 size는 8의 배수
+    size = ALIGN(words * WSIZE);
+    
+    // size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;        // words가 홀수이면 +1해서 짝수로 만들어준다 size는 8의 배수
+
     if ((long)(bp = mem_sbrk(size)) == -1)                              // mem_sbrk(size)로 힙을 size 바이트 확장
         return NULL;
     
@@ -180,6 +183,42 @@ char* next_fit(size_t asize)
     return NULL;                                                        // 못 찾음
 }
 
+char* best_fit(size_t asize)
+{
+    void* bp;
+    void* best_bp = NULL;                                               // 지금까지 찾은 최적(가장 잘 맞는) 블록의 포인터
+    size_t best_size = (size_t)-1;                                      // 지금까지 찾은 최적 블록의 크기 (처음엔 최대값으로 설정)
+
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))   // 힙의 첫 블록부터 끝까지 선형 탐색
+    {
+        if (!GET_ALLOC(HDRP(bp)))                                       // 블록이 가용 상태라면
+        {
+            size_t csize = GET_SIZE(HDRP(bp));                          // 현재 블록의 전체 크기
+
+            if (csize >= asize)                                         // 현재 블록이 asize 이상이면 후보
+            {
+                if (csize == asize)                                     // 딱 맞는 크기 발견 시 → Best-fit의 최적 상황
+                {
+                    return bp;                                          // 즉시 반환 (탐색 종료)
+                }
+                
+                if (csize < best_size)                                  // 지금까지 본 후보 중 더 작은 블록이라면 갱신
+                {
+                    best_size = csize;
+                    best_bp = bp;
+                }
+            }
+        }
+    }
+
+    if (best_bp != NULL)                                                // 탐색이 끝난 뒤 최적 블록(best_bp)이 있으면 반환
+    {
+        return best_bp;
+    }
+
+    return NULL;
+}
+
 static void place(void* bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));                                   // 현재 가용 블록의 크기
@@ -189,14 +228,14 @@ static void place(void* bp, size_t asize)
         PUT(HDRP(bp), PACK(asize, 1));                                   // 앞쪽 부분을 할당 블록으로 설정
         PUT(FTRP(bp), PACK(asize, 1));
         
-        void* rest = NEXT_BLKP(bp);                                              // 남은 부분은 새로운 가용 블록으로 설정
+        void* rest = NEXT_BLKP(bp);                                      // 남은 부분은 새로운 가용 블록으로 설정
         PUT(HDRP(rest), PACK(csize-asize, 0));
         PUT(FTRP(rest), PACK(csize-asize, 0));
         save_bp = rest;
     }
     else
     {
-        PUT(HDRP(bp), PACK(csize, 1));                                   // 남은 부분은 새로운 가용 블록으로 설정
+        PUT(HDRP(bp), PACK(csize, 1));                                   // 잔여분 없이 통째로 할당
         PUT(FTRP(bp), PACK(csize, 1));
         save_bp = NEXT_BLKP(bp);
     }
@@ -208,40 +247,43 @@ static void place(void* bp, size_t asize)
  */
 void *mm_malloc(size_t size)
 {
-    // int newsize = ALIGN(size + SIZE_T_SIZE);                     // 요청한 size에 추가 메타데이터 공간(SIZE_T_SIZE)를 더하고, 블록 크기를 ALIGN 매크로로 정렬한다
-    // void *p = mem_sbrk(newsize);                                 // mem_sbrk로 힙을 newsize만큼 확장한다
-    // if (p == (void *)-1)                                         // mem_sbrk가 실패하면, (void *)-1를 반환하므로 NULL을 리턴한다
-    //     return NULL;
-    // else
-    // {
-    //     *(size_t *)p = size;                                     // 블록 맨 앞에 payLoad의 크기를 기록한다
-    //     return (void *)((char *)p + SIZE_T_SIZE);                // 사용자에게는 그 다음 주소(payLoad 시작점)을 반환한다
-    // }
-
-    size_t asize;                                                   // 실제 할당할 블록의 크기 (헤더/푸터, 정렬 포함)
-    size_t extendsize;                                              // 힙에 새로 확장할 크기                            
-    char* bp;                                                       // 블록 포인터 (payload 시작점)
+    // int newsize = ALIGN(size + SIZE_T_SIZE);                        // 요청한 size에 추가 메타데이터 공간(SIZE_T_SIZE)를 더하고, 블록 크기를 ALIGN 매크로로 정렬한다
+    // void *p = mem_sbrk(newsize);                                    // mem_sbrk로 힙을 newsize만큼 확장한다
+    // if (p == (void *)-1)                                            // mem_sbrk가 실패하면, (void *)-1를 반환하므로 NULL을 리턴한다
+    //     return NULL;   
+    // else   
+    // {   
+    //     *(size_t *)p = size;                                        // 블록 맨 앞에 payLoad의 크기를 기록한다
+    //     return (void *)((char *)p + SIZE_T_SIZE);                   // 사용자에게는 그 다음 주소(payLoad 시작점)을 반환한다
+    // }   
+   
+    size_t asize;                                                      // 실제 할당할 블록의 크기 (헤더/푸터, 정렬 포함)
+    size_t extendsize;                                                 // 힙에 새로 확장할 크기                            
+    char* bp;                                                          // 블록 포인터 (payload 시작점)
 
     if (size == 0)                                              
         return NULL;
     
-    if (size <= DSIZE)
-        asize = 2 * DSIZE;                                          // 요청 크기가 너무 작으면, 최소 블록 크기(16바이트)로 맞춤
-    else
-        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);   // 요청 크기가 클 경우: 헤더/푸터 등 오버헤드와 정렬을 포함해 8바이트(DSIZE) 배수로 올림 처리
+
+    asize = MAX(2 * DSIZE, ALIGN(size + DSIZE));                       // 최소 블록 크기(16B) 보장 + 헤더/푸터 8B 포함해 정렬
     
-    if ((bp = next_fit(asize)) != NULL)                             // 가용 리스트에서 asize 크기 이상 맞는 블록을 탐색
-    {
-        place(bp, asize);                                           // 찾았다면 그 블록에 asize 크기만큼 배치 (필요시 분할)
-        return bp;                                                  // 블록의 payload 포인터 반환
-    }
-
-    extendsize = MAX(asize, CHUNKSIZE);                             // 못 찾으면, 최소 4KB(CHUNKSIZE) 또는 asize 중 큰 값만큼 확장
-    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)             // 힙 확장 시도 (워드 단위 환산)
-        return NULL;
-
-    place(bp, asize);                                               // 확장된 블록에 asize 크기만큼 배치
-    return bp;                                                      // 최종 블록의 payload 포인터 반환
+    // if (size <= DSIZE)
+    //     asize = 2 * DSIZE;                                          // 요청 크기가 너무 작으면, 최소 블록 크기(16바이트)로 맞춤
+    // else
+    //     asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);   // 요청 크기가 클 경우: 헤더/푸터 등 오버헤드와 정렬을 포함해 8바이트(DSIZE) 배수로 올림 처리
+    
+    if ((bp = best_fit(asize)) != NULL)                                // 가용 리스트에서 asize 크기 이상 맞는 블록을 탐색
+    {   
+        place(bp, asize);                                              // 찾았다면 그 블록에 asize 크기만큼 배치 (필요시 분할)
+        return bp;                                                     // 블록의 payload 포인터 반환
+    }   
+   
+    extendsize = MAX(asize, CHUNKSIZE);                                // 못 찾으면, 최소 4KB(CHUNKSIZE) 또는 asize 중 큰 값만큼 확장
+    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)                // 힙 확장 시도 (워드 단위 환산)
+        return NULL;   
+   
+    place(bp, asize);                                                  // 확장된 블록에 asize 크기만큼 배치
+    return bp;                                                         // 최종 블록의 payload 포인터 반환
 }
 
 /*
@@ -281,12 +323,12 @@ void *mm_realloc(void *ptr, size_t size)
     // mm_free(oldptr);
     // return newptr;
 
-    if (ptr == NULL)
+    if (ptr == NULL)                            // ptr이 NULL이면 그냥 malloc과 동일하게 동작
     {
         return mm_malloc(size);
     }
-
-    if (size == 0)
+    
+    if (size == 0)                              // 요청 크기가 0이면 free와 동일하게 동작
     {
         mm_free(ptr);
         return NULL;
@@ -295,34 +337,35 @@ void *mm_realloc(void *ptr, size_t size)
     size_t old_block = GET_SIZE(HDRP(ptr));     // 헤더에 있는 블록 전체 크기
     size_t old_payload = old_block - DSIZE;     // payLoad 크기(헤더 + 푸터 제외)
 
-    size_t asize = (size <= DSIZE) ? 2 * DSIZE : DSIZE * ((size + DSIZE + (DSIZE - 1)) / DSIZE);
+    size_t asize = MAX(2*DSIZE, ALIGN(size + DSIZE));
+    // size_t asize = (size <= DSIZE) ? 2 * DSIZE : DSIZE * ((size + DSIZE + (DSIZE - 1)) / DSIZE);
 
-    if (asize <= old_block)
+    if (asize <= old_block)                     // 기존 블록이 충분히 커서 그대로 사용 가능
     {
-        place(ptr, asize);
-        return ptr;
+        place(ptr, asize);                      // 필요하다면 블록을 분할
+        return ptr;                             // 그대로 반환
     }
 
     void* next = NEXT_BLKP(ptr);
     
-    if (!GET_ALLOC(HDRP(next)) && old_block + GET_SIZE(HDRP(next)) >= asize)
+    if (!GET_ALLOC(HDRP(next)) && old_block + GET_SIZE(HDRP(next)) >= asize)  // 바로 뒤 블록이 free 상태이고, 합치면 asize 이상이 되는 경우 → in-place 확장
     {
         size_t total = old_block + GET_SIZE(HDRP(next));
-        PUT(HDRP(ptr), PACK(total, 1));
+        PUT(HDRP(ptr), PACK(total, 1));                                       // 헤더/푸터 갱신해서 현재 블록을 크게 만든다
         PUT(FTRP(ptr), PACK(total, 1));
-        place(ptr, asize);
-        return ptr;
+        place(ptr, asize);                                                    // 필요하다면 다시 분할
+        return ptr;                                                           // 포인터 그대로 반환 (복사 불필요)
     }
 
-    void* newp = mm_malloc(size);
+    void* newp = mm_malloc(size);                                             // 새 블록을 따로 할당해야 하는 경우
     
     if (!newp)
     {
         return NULL;
     }
 
-    size_t copy = (old_payload < size) ? old_payload : size;
+    size_t copy = (old_payload < size) ? old_payload : size;                  // 기존 payload 데이터를 새 블록으로 복사, 크기는 기존 payload와 새 요청 중 작은 값
     memcpy(newp, ptr, copy);
-    mm_free(ptr);
+    mm_free(ptr);                                                             // 기존 블록 반환
     return newp;
 }
