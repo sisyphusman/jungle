@@ -182,9 +182,13 @@ thread_print_stats (void) {
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
-tid_t
-thread_create (const char *name, int priority,
-		thread_func *function, void *aux) {
+
+// 새로운 커널 스레드를 생성하고, 지정한 우선순위(priority)로 ready queue(레디 리스트)에 넣는다.
+// 생성된 스레드가 지정한 함수(function)를 인자로(aux)와 함께 실행한다.
+// 생성된 스레드의 식별자(tid)를 반환한다. 만약 생성에 실패하면 TID_ERROR 반환.
+
+tid_t thread_create (const char *name, int priority, thread_func *function, void *aux) 
+{
 	struct thread *t;
 	tid_t tid;
 
@@ -212,6 +216,7 @@ thread_create (const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock (t);
+	thread_swap_prior();
 
 	return tid;
 }
@@ -240,15 +245,28 @@ void thread_block (void)
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
-void
-thread_unblock (struct thread *t) {
+
+// 이 함수는 블록된 스레드를 ready 상태로 전환하지만, 
+// 실행 중인 스레드를 중단시키지는 않는다. 
+// 스레드가 블록 상태가 아니면 오류가 발생하며, 
+// 인터럽트를 막은 상태라면 안전하게 다른 데이터랑 블록 해제를 처리할 수 있다.
+// block->ready_list
+
+// ready_list 찾았다
+void thread_unblock (struct thread *t) 
+{
 	enum intr_level old_level;
 
 	ASSERT (is_thread (t));
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	
+	// Priority 하게 바꾸자
+	//list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, sort_thread_priority, NULL);
+	//printf("[PS_basic] thread_yield: Inserted %s (priority=%d, tid=%d) into ready_list\n",curr->name, curr->priority, curr->tid);
+	
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -303,9 +321,9 @@ thread_exit (void) {
 // 현재 실행 중인 스레드를 READY 리스트에 넣고
 // 스케줄러를 호출해 다른 스레드를 실행하도록 CPU를 양보하는 함수예요.
 // **문맥 전환(Context Switch)**을 유발하는 대표적인 함수입니다.
-
-void
-thread_yield (void) {
+// ready_list 찾았다
+void thread_yield (void) 
+{
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
@@ -313,7 +331,12 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+	{
+		//list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, sort_thread_priority, NULL);
+		//printf("[PS_basic] thread_yield: Inserted %s (priority=%d, tid=%d) into ready_list\n",curr->name, curr->priority, curr->tid);
+	}
+		
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -357,7 +380,9 @@ bool sort_thread_ticks(struct list_elem *a, struct list_elem *b)
 	
 	if (thread_a->ticks_awake == thread_b->ticks_awake)
 	{
-		return thread_a->tid < thread_b->tid; // ticks가 같으면 tid 값으로 정렬
+		// Warning : FIFO 구조 해치고 있긴함
+		return thread_a->tid < thread_b->tid; // ticks가 같으면 tid 값으로 정렬 -> 테스트 조건에 안맞을 수도
+		// return 0; -> FIFO
 	}  
 	
 	return thread_a->ticks_awake < thread_b->ticks_awake;
@@ -388,6 +413,7 @@ void thread_awake(int64_t ticks)
 
             list_remove(now_elem);         // sleep_list에서 제거
             thread_unblock(curr_thread);    // ready_list로 이동
+			thread_swap_prior(); 
 
             now_elem = next_elem;   
         } 
@@ -401,10 +427,60 @@ void thread_awake(int64_t ticks)
 }
 
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
-void
-thread_set_priority (int new_priority) {
-	thread_current ()->priority = new_priority;
+// 레디리스트안에서 우선순위가 높은 쓰레드를 앞으로 정렬
+bool sort_thread_priority(struct list_elem *a, struct list_elem *b)
+{
+	struct thread *thread_a = list_entry(a, struct thread, elem);
+	struct thread *thread_b = list_entry(b, struct thread, elem);
+	
+	// Error
+	// tid 순으로 살리는 방법 X -> 테스트는 FIFO를 요구함 
+	if (thread_a->priority == thread_b->priority)
+	{
+		//return thread_a->tid > thread_b->tid;
+		return 0;
+	}  
+	
+	return thread_a->priority > thread_b->priority;
+}
+
+// 현재 실행중인 쓰레드랑 ready_list에 있는 쓰레드랑 우선순위비교
+// 대기하는게 더 높다면 교체까지
+void thread_swap_prior(void)
+{
+	// 예외처리
+	if (list_empty(&ready_list)) return;
+
+	struct thread *now = thread_current();
+	struct thread *ready = list_entry(list_front(&ready_list),struct thread, elem);
+
+	//printf("[PS_basic] thread_swap_prior: now(%s, priority=%d, tid=%d), ready(%s, priority=%d, tid=%d)\n",now->name, now->priority, now->tid,ready->name, ready->priority, ready->tid);
+
+
+	if (now->priority < ready->priority)
+	{
+		//printf("[PS_basic] thread_swap_prior: now->priority < ready->priority, yielding...\n");
+
+		// Error
+		// thread_awake()는 timer interrupt에서 실행됨 → 즉, 인터럽트 컨텍스트에서 실행됨
+		// thread_yield()는 인터럽트 컨텍스트에서 실행하면 커널 패닉 (ASSERT(!intr_context()))
+		// thread_yield 만 아니라 저렇게까지 해야함
+		if (intr_context())
+            intr_yield_on_return();
+        else
+            thread_yield();
+	}
+
+}
+
+
+// 아 뭐야 여기있었네
+void thread_set_priority (int new_priority) 
+{
+	struct thread *now = thread_current();
+	now->priority = new_priority;
+	thread_swap_prior();
+
 }
 
 /* Returns the current thread's priority. */
@@ -509,6 +585,8 @@ init_thread (struct thread *t, const char *name, int priority) {
    empty.  (If the running thread can continue running, then it
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
+
+
 static struct thread *
 next_thread_to_run (void) {
 	if (list_empty (&ready_list))
