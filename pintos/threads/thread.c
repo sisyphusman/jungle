@@ -92,8 +92,7 @@ static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
 
    It is not safe to call thread_current() until this function
    finishes. */
-void
-thread_init (void) {
+void thread_init (void) {
 	ASSERT (intr_get_level () == INTR_OFF);
 
 	/* Reload the temporal gdt for the kernel
@@ -119,8 +118,7 @@ thread_init (void) {
 
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
-void
-thread_start (void) {
+void thread_start (void) {
 	/* Create the idle thread. */
 	struct semaphore idle_started;
 	sema_init (&idle_started, 0);
@@ -135,8 +133,7 @@ thread_start (void) {
 
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
-void
-thread_tick (void) {
+void thread_tick (void) {
 	struct thread *t = thread_current ();
 
 	/* Update statistics. */
@@ -294,18 +291,24 @@ thread_exit (void) {
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
-void
-thread_yield (void) {
+void thread_yield (void) {
+	/**
+	 * 자발적 Context Switch를 즉시 일으켜
+	 * CPU를 다른 실행 가능한 스레드에게 양보하는 함수 
+	 */
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
-	ASSERT (!intr_context ());
+	ASSERT (!intr_context ()); // 인터럽트 핸들러 안이 아니여야 함 : 뭐.. 동시성깨진다는데??
 
-	old_level = intr_disable ();
-	if (curr != idle_thread)
+	old_level = intr_disable (); // H/W interrupt 인터럽트 금지 => 원자성 보장 by 임계 영역 보호
+	if (curr != idle_thread){
+		// idle_thread는 예외적 스레드라 준비큐에 넣으면 안됨
 		list_push_back (&ready_list, &curr->elem);
-	do_schedule (THREAD_READY);
-	intr_set_level (old_level);
+	}
+
+	do_schedule (THREAD_READY); // 현재 쓰레드의 상태를 "READY"상태로 바꾸고 Context Switch
+	intr_set_level (old_level); // 인터럽트 상태 복원
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */

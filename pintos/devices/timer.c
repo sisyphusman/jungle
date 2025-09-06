@@ -20,11 +20,14 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
+static struct list sleep_list;
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
 static intr_handler_func timer_interrupt;
+static list_less_func sleep_less;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
@@ -42,8 +45,10 @@ timer_init (void) {
 	outb (0x40, count & 0xff);
 	outb (0x40, count >> 8);
 
+	list_init(&sleep_list);
 	intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
+
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
 void
@@ -71,30 +76,44 @@ timer_calibrate (void) {
 }
 
 /* Returns the number of timer ticks since the OS booted. */
-int64_t
-timer_ticks (void) {
+int64_t timer_ticks (void) {
 	enum intr_level old_level = intr_disable ();
 	int64_t t = ticks;
+	//thread_block
 	intr_set_level (old_level);
+	
 	barrier ();
 	return t;
 }
 
 /* Returns the number of timer ticks elapsed since THEN, which
    should be a value once returned by timer_ticks(). */
-int64_t
-timer_elapsed (int64_t then) {
+int64_t timer_elapsed (int64_t then) { // then 시점 이후로 얼마나 흘렀는지 
 	return timer_ticks () - then;
 }
 
 /* Suspends execution for approximately TICKS timer ticks. */
-void
-timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
+/**
+ * 이 함수를 호출한 스레드의 실행을 최소한 ticks만큼의 타이머 틱이 지날 때까지 중단시킨다.
+ * TIMER_FREQ 기본값 = 100 (변경은 비추)
+ * 목표 : Busy Wait 없애기 
+ */ 
 
-	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+// static struct list sleep_list;
+// static struct list ready_list;
+// todo 
+void timer_sleep (int64_t ticks) { 
+	// 인터럽트 방해 막기 
+	struct thread *cur_thread = thread_current();
+	cur_thread->wake_up_time = timer_ticks () + ticks;
+	
+	enum intr_level old_level = intr_disable();
+	// void list_push_back (struct list *, struct list_elem *);
+	list_insert_ordered(&sleep_list, &cur_thread->sleep_elem, sleep_less, NULL);
+
+	// BLOCK상태로 만들기 (READY 상태 X)
+	thread_block();
+	intr_set_level(old_level);	
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -122,11 +141,49 @@ timer_print_stats (void) {
 }
 
 /* Timer interrupt handler. */
-static void
-timer_interrupt (struct intr_frame *args UNUSED) {
+// todo : 이거 고치기 
+static void timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-	thread_tick ();
+	thread_tick (); // 실행 통계 누적(틱증가) + 타임슬라이스 초과 감지
+
+	// list_pop_front
+	// 잠든 스레드 깨우고 READY 큐 복귀 시키기 
+	if (list_empty(&sleep_list)) {
+		return;
+	}
+
+	bool need_reschedule = false;
+	while (list_empty(&sleep_list) == false)
+	{
+		struct thread *t = list_entry(list_front(&sleep_list), struct thread, sleep_elem);
+		// 
+		if (t->wake_up_time > ticks){
+			break;
+		}
+
+		list_pop_front(&sleep_list);
+		thread_unblock(t);		
+		need_reschedule = true;
+	}
+	
+	if (need_reschedule){
+		intr_yield_on_return();
+	}
 }
+
+/* sleep 큐 정렬 비교자*/
+static bool sleep_less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+	const struct thread *thread_a = list_entry(a, struct thread, sleep_elem);
+	const struct thread *thread_b = list_entry(b, struct thread, sleep_elem);
+
+	if (thread_a->wake_up_time != thread_b->wake_up_time){
+		return thread_a->wake_up_time < thread_b->wake_up_time;
+	}
+	
+	return false;
+}
+
+
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */

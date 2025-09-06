@@ -261,10 +261,9 @@ intr_context (void) {
 
 /* During processing of an external interrupt, directs the
    interrupt handler to yield to a new process just before
-   returning from the interrupt.  May not be called at any other
+   returning from the interrupt. May not be called at any other
    time. */
-void
-intr_yield_on_return (void) {
+void intr_yield_on_return (void) {
 	ASSERT (intr_context ());
 	yield_on_return = true;
 }

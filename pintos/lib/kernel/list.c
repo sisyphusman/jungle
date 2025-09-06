@@ -424,14 +424,15 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
 	ASSERT (elem != NULL);
 	ASSERT (less != NULL);
 
-	for (e = list_begin (list); e != list_end (list); e = list_next (e))
+	for (e = list_begin (list); e != list_end (list); e = list_next (e)){
 		if (less (elem, e, aux))
 			break;
+	}
 	return list_insert (e, elem);
 }
 
 /* Iterates through LIST and removes all but the first in each
-   set of adjacent elements that are equal according to LESS
+  e set of adjacent elements that are equal according to LESS
    given auxiliary data AUX.  If DUPLICATES is non-null, then the
    elements from LIST are appended to DUPLICATES. */
 void
