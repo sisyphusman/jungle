@@ -140,9 +140,11 @@ void thread_yield (void);
 void thread_sleep(int64_t ticks);
 bool sort_thread_ticks(struct list_elem *a, struct list_elem *b);
 void thread_awake (int64_t ticks);
+bool sort_thread_priority(struct list_elem *a, struct list_elem *b);
+void thread_swap_prior(void);
 
 int thread_get_priority (void);
-void thread_set_priority (int);
+void thread_set_priority (int new_priority);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
