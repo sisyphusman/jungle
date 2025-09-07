@@ -40,6 +40,8 @@ static struct lock tid_lock;
 /* Thread destruction requests */
 static struct list destruction_req;
 
+static list_more_func higher_priority;
+
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
@@ -173,9 +175,7 @@ thread_print_stats (void) {
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
-tid_t
-thread_create (const char *name, int priority,
-		thread_func *function, void *aux) {
+tid_t thread_create (const char *name, int priority, thread_func *function, void *aux) {
 	struct thread *t;
 	tid_t tid;
 
@@ -229,15 +229,15 @@ thread_block (void) {
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
-void
-thread_unblock (struct thread *t) {
+void thread_unblock (struct thread *t) {
 	enum intr_level old_level;
 
 	ASSERT (is_thread (t));
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, higher_priority, NULL);
+	// list_push_back (&ready_list, &t->elem);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -302,9 +302,9 @@ void thread_yield (void) {
 	ASSERT (!intr_context ()); // 인터럽트 핸들러 안이 아니여야 함 : 뭐.. 동시성깨진다는데??
 
 	old_level = intr_disable (); // H/W interrupt 인터럽트 금지 => 원자성 보장 by 임계 영역 보호
-	if (curr != idle_thread){
-		// idle_thread는 예외적 스레드라 준비큐에 넣으면 안됨
-		list_push_back (&ready_list, &curr->elem);
+	if (curr != idle_thread){ // idle_thread는 예외적 스레드라 준비큐에 넣으면 안됨
+		list_insert_ordered(&ready_list, &curr->elem, higher_priority, NULL);
+		// list_push_back (&ready_list, &curr->elem);
 	}
 
 	do_schedule (THREAD_READY); // 현재 쓰레드의 상태를 "READY"상태로 바꾸고 Context Switch
@@ -312,14 +312,63 @@ void thread_yield (void) {
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-void
-thread_set_priority (int new_priority) {
-	thread_current ()->priority = new_priority;
+void thread_set_priority (int new_priority) {
+	struct thread *cur = thread_current();
+	
+	cur->priority = new_priority;
+	
+	int before = cur->eff_priority;
+	recompute_eff_priority(cur);
+	if (cur->eff_priority == before) {
+		return;
+	}
+
+	enum intr_level old = intr_disable();
+	
+	/**
+	 * 더 높은 우선순위 깨우는 작업
+	 * - READY상태의 현재 스레드 우선순위보다 더높은 우선순위를 가진게 있다면 패스 
+	 */
+	if (!list_empty(&ready_list)){
+		struct thread *first = list_entry(list_front(&ready_list), struct thread, elem);
+		if (first->eff_priority > cur->eff_priority) {
+			intr_set_level(old);
+			thread_yield();
+			return;
+		}
+	}
+
+	intr_set_level(old);
+}
+
+// donators목록 중 최고 
+void recompute_eff_priority(struct thread *t){
+	enum intr_level old = intr_disable();
+	if (list_empty(&t->donators)){
+		t->eff_priority = t->priority; // 혹시 모르니 추가 
+		intr_set_level(old);
+		return;
+	}
+
+	// donators가 있는 경우만 eff_priority 재계산 
+	struct thread *top = list_entry(list_front(&t->donators), struct thread, donate_elem);
+	if (top->eff_priority > t->eff_priority){
+		t->eff_priority = top->eff_priority;
+	}
+
+	intr_set_level(old);	
+}
+
+static bool higher_priority(const struct list_elem *a,
+                             const struct list_elem *b,
+                             void *aux){
+	const struct thread *thread_a = list_entry(a, struct thread, elem);
+	const struct thread *thread_b = list_entry(b, struct thread, elem);
+	return thread_a->eff_priority > thread_b->eff_priority;
 }
 
 /* Returns the current thread's priority. */
-int
-thread_get_priority (void) {
+int thread_get_priority (void) {
 	return thread_current ()->priority;
 }
 
@@ -407,10 +456,13 @@ init_thread (struct thread *t, const char *name, int priority) {
 	ASSERT (name != NULL);
 
 	memset (t, 0, sizeof *t);
+	list_init(&t->donators); // donators 추가 
+
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
+	t->eff_priority = priority;
 	t->magic = THREAD_MAGIC;
 }
 

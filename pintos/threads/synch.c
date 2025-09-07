@@ -32,6 +32,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+
+static list_more_func higher_priority;
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -57,20 +59,29 @@ sema_init (struct semaphore *sema, unsigned value) {
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. This is
    sema_down function. */
-void
-sema_down (struct semaphore *sema) {
+void sema_down (struct semaphore *sema) {
 	enum intr_level old_level;
 
 	ASSERT (sema != NULL);
 	ASSERT (!intr_context ());
 
+	struct thread *cur = thread_current();
+	
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered(&sema->waiters, &cur->elem, higher_priority, NULL);
 		thread_block ();
 	}
 	sema->value--;
 	intr_set_level (old_level);
+}
+
+static bool higher_priority(const struct list_elem *a,
+                             const struct list_elem *b,
+                             void *aux){
+	const struct thread *thread_a = list_entry(a, struct thread, elem);
+	const struct thread *thread_b = list_entry(b, struct thread, elem);
+  return thread_a->eff_priority > thread_b->eff_priority;
 }
 
 /* Down or "P" operation on a semaphore, but only if the
