@@ -40,7 +40,9 @@ static struct lock tid_lock;
 /* Thread destruction requests */
 static struct list destruction_req;
 
-static list_more_func higher_priority;
+static bool higher_priority(const struct list_elem *a,
+                             const struct list_elem *b,
+                             void *aux);
 
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
@@ -64,6 +66,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
+static void recompute_eff_priority(struct thread *t);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -204,6 +207,7 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	/* Add to run queue. */
 	thread_unblock (t);
 
+
 	return tid;
 }
 
@@ -237,8 +241,11 @@ void thread_unblock (struct thread *t) {
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 	list_insert_ordered(&ready_list, &t->elem, higher_priority, NULL);
-	// list_push_back (&ready_list, &t->elem);
 	t->status = THREAD_READY;
+	// if (t != idle_thread && t->eff_priority > thread_current()->eff_priority){	
+	// 	if (intr_context()) intr_yield_on_return();
+	// 	else thread_yield();
+	// }
 	intr_set_level (old_level);
 }
 
@@ -333,7 +340,8 @@ void thread_set_priority (int new_priority) {
 		struct thread *first = list_entry(list_front(&ready_list), struct thread, elem);
 		if (first->eff_priority > cur->eff_priority) {
 			intr_set_level(old);
-			thread_yield();
+			if (intr_context()) intr_yield_on_return();
+			else thread_yield();
 			return;
 		}
 	}
@@ -456,13 +464,13 @@ init_thread (struct thread *t, const char *name, int priority) {
 	ASSERT (name != NULL);
 
 	memset (t, 0, sizeof *t);
-	// list_init(&t->donators); // donators 추가 
+	list_init(&t->donators); // donators 추가 
 
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
-	// t->eff_priority = priority;
+	t->eff_priority = priority;
 	t->magic = THREAD_MAGIC;
 }
 
