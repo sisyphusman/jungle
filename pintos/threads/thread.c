@@ -40,7 +40,7 @@ static struct lock tid_lock;
 /* Thread destruction requests */
 static struct list destruction_req;
 
-static bool higher_priority(const struct list_elem *a,
+static bool higher_priority_basic(const struct list_elem *a,
                              const struct list_elem *b,
                              void *aux);
 
@@ -66,7 +66,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
-static void recompute_eff_priority(struct thread *t);
+//static void recompute_eff_priority(struct thread *t);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -207,6 +207,9 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	/* Add to run queue. */
 	thread_unblock (t);
 
+	if (t->eff_priority > thread_current()->eff_priority) {
+		thread_yield();
+	}
 
 	return tid;
 }
@@ -240,7 +243,7 @@ void thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_insert_ordered(&ready_list, &t->elem, higher_priority, NULL);
+	list_insert_ordered(&ready_list, &t->elem, higher_priority_basic, NULL);
 	t->status = THREAD_READY;
 	// if (t != idle_thread && t->eff_priority > thread_current()->eff_priority){	
 	// 	if (intr_context()) intr_yield_on_return();
@@ -310,7 +313,7 @@ void thread_yield (void) {
 
 	old_level = intr_disable (); // H/W interrupt 인터럽트 금지 => 원자성 보장 by 임계 영역 보호
 	if (curr != idle_thread){ // idle_thread는 예외적 스레드라 준비큐에 넣으면 안됨
-		list_insert_ordered(&ready_list, &curr->elem, higher_priority, NULL);
+		list_insert_ordered(&ready_list, &curr->elem, higher_priority_basic, NULL);
 		// list_push_back (&ready_list, &curr->elem);
 	}
 
@@ -340,8 +343,8 @@ void thread_set_priority (int new_priority) {
 		struct thread *first = list_entry(list_front(&ready_list), struct thread, elem);
 		if (first->eff_priority > cur->eff_priority) {
 			intr_set_level(old);
-			if (intr_context()) intr_yield_on_return();
-			else thread_yield();
+			//if (intr_context()) intr_yield_on_return();
+			thread_yield();
 			return;
 		}
 	}
@@ -349,25 +352,7 @@ void thread_set_priority (int new_priority) {
 	intr_set_level(old);
 }
 
-// donators목록 중 최고 
-void recompute_eff_priority(struct thread *t){
-	enum intr_level old = intr_disable();
-	if (list_empty(&t->donators)){
-		t->eff_priority = t->priority; // 혹시 모르니 추가 
-		intr_set_level(old);
-		return;
-	}
-
-	// donators가 있는 경우만 eff_priority 재계산 
-	struct thread *top = list_entry(list_front(&t->donators), struct thread, donate_elem);
-	if (top->eff_priority > t->eff_priority){
-		t->eff_priority = top->eff_priority;
-	}
-
-	intr_set_level(old);	
-}
-
-static bool higher_priority(const struct list_elem *a,
+static bool higher_priority_basic(const struct list_elem *a,
                              const struct list_elem *b,
                              void *aux){
 	const struct thread *thread_a = list_entry(a, struct thread, elem);
@@ -378,6 +363,17 @@ static bool higher_priority(const struct list_elem *a,
 /* Returns the current thread's priority. */
 int thread_get_priority (void) {
 	return thread_current ()->priority;
+}
+
+
+void requeue_ready_list(struct thread *t){
+	ASSERT(t->status == THREAD_READY);
+	list_remove(&t->elem);
+	list_insert_ordered(&ready_list, &t->elem, higher_priority_basic, NULL);
+}
+
+int get_top_in_ready_list() {
+
 }
 
 /* Sets the current thread's nice value to NICE. */

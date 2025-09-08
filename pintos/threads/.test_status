@@ -1,7 +1,8 @@
+priority-donate-one FAIL
 alarm-simultaneous PASS
 alarm-single PASS
 alarm-priority PASS
 alarm-zero PASS
-priority-change FAIL
+priority-change PASS
 alarm-negative PASS
 alarm-multiple PASS

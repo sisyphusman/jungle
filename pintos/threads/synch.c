@@ -33,7 +33,8 @@
 #include "threads/thread.h"
 
 
-static list_more_func higher_priority;
+static list_more_func higher_priority_basic;
+static list_more_func higher_priority_donate;
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -43,8 +44,7 @@ static list_more_func higher_priority;
 
    - up or "V": increment the value (and wake up one waiting
    thread, if any). */
-void
-sema_init (struct semaphore *sema, unsigned value) {
+void sema_init (struct semaphore *sema, unsigned value) {
 	ASSERT (sema != NULL);
 
 	sema->value = value;
@@ -69,18 +69,26 @@ void sema_down (struct semaphore *sema) {
 	
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_insert_ordered(&sema->waiters, &cur->elem, higher_priority, NULL);
+		list_insert_ordered(&sema->waiters, &cur->elem, higher_priority_basic, NULL);
 		thread_block ();
 	}
 	sema->value--;
 	intr_set_level (old_level);
 }
 
-static bool higher_priority(const struct list_elem *a,
+static bool higher_priority_basic(const struct list_elem *a,
                              const struct list_elem *b,
                              void *aux){
 	const struct thread *thread_a = list_entry(a, struct thread, elem);
 	const struct thread *thread_b = list_entry(b, struct thread, elem);
+  return thread_a->eff_priority > thread_b->eff_priority;
+}
+
+static bool higher_priority_donate(const struct list_elem *a,
+                             const struct list_elem *b,
+                             void *aux){
+	const struct thread *thread_a = list_entry(a, struct thread, donate_elem);
+	const struct thread *thread_b = list_entry(b, struct thread, donate_elem);
   return thread_a->eff_priority > thread_b->eff_priority;
 }
 
@@ -113,19 +121,33 @@ sema_try_down (struct semaphore *sema) {
    and wakes up one thread of those waiting for SEMA, if any.
 
    This function may be called from an interrupt handler. */
+
+/**
+ * 
+ */
 void sema_up (struct semaphore *sema) {
 	enum intr_level old_level;
 
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
+	struct thread *next = NULL;
 	if (!list_empty (&sema->waiters)) {
-		thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
-		
+		next = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
+		thread_unblock(next);
 	}
-		
+	
 	sema->value++;
 	intr_set_level (old_level);
+
+	// 만약 READY LIST 중 앞선 우선순위 있으면 양보 
+	if (next && next->eff_priority > thread_current()->eff_priority) {
+		if (intr_context()) {
+			intr_yield_on_return();
+		} else {
+			thread_yield();
+		}
+	}
 }
 
 static void sema_test_helper (void *sema_);
@@ -178,8 +200,7 @@ sema_test_helper (void *sema_) {
    acquire and release it.  When these restrictions prove
    onerous, it's a good sign that a semaphore should be used,
    instead of a lock. */
-void
-lock_init (struct lock *lock) {
+void lock_init (struct lock *lock) {
 	ASSERT (lock != NULL);
 
 	lock->holder = NULL;
@@ -190,18 +211,115 @@ lock_init (struct lock *lock) {
    necessary.  The lock must not already be held by the current
    thread.
 
-   This function may sleep, so it must not be called within an
-   interrupt handler.  This function may be called with
+   This function may sleep, so it must not be called within an 
+	 interrupt handler. (중요)  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-void
-lock_acquire (struct lock *lock) {
+
+/**
+ * 락 획득 시도 => 
+ * 1. 주인이 있으면 
+ * - 대기자 등록 in sema => sema_down()에서 구현되어 있음
+ * - 전파하기 
+ * - sema_down에서 블락당하기 
+ * 2. 주인이 없으면
+ * - 그냥 ㄱ  
+ */
+void lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+	// 고민 : 전파를 어디서 해야할까? sema_down에 맡기는게 맞을까???
+	enum intr_level old = intr_disable();
+	struct thread *cur = thread_current();
+
+	if (lock->holder) { // 락 대기자 등록은 SEMA_DOWN에서 하네 
+		cur->waiting_lock = lock;
+		propagate_eff_priority();
+	}
+
 	sema_down (&lock->semaphore);
 	lock->holder = thread_current ();
+	// Clear waiting_lock since we now have the lock
+	thread_current()->waiting_lock = NULL;
+
+	intr_set_level(old);
+}
+
+/**
+ * 전파 동안 해야할 일
+ * 1. lock_donators 재정렬 : Cuz cur의 유효 우선순위가 바꼈으니 
+ * 2. 새로운 유효 우선순위 계산 및 검증 
+ * 3. 변경 됐고 ready상태라면 ready_list update
+ */
+// todo : 분기가 너무 많긴한데 나중에 고쳐보자 
+
+static bool is_contain(struct list *target_list, struct list_elem *target_elem) {
+	struct list_elem *e;
+	for (e = list_begin(target_list); e != list_end(&target_list); e = list_next(e)) {
+		if (e == target_elem) return true;
+	}
+
+	return false;
+}
+
+void propagate_eff_priority() {
+
+	enum intr_level old = intr_disable();
+	
+	struct thread *cur = thread_current();
+	struct lock *w_lock = cur->waiting_lock;
+	
+	while ((w_lock = cur->waiting_lock) && w_lock->holder)
+	{
+		struct thread *w_lock_holder = w_lock->holder;
+		// 1. lock_donators 재정렬
+		// Only remove if the element is already in a list
+		bool is_donator = is_contain(&w_lock_holder->donators, &cur->donate_elem);
+		if (!list_empty(&w_lock_holder->donators) && is_donator){
+				list_remove(&cur->donate_elem);
+		}
+		list_insert_ordered(&w_lock_holder->donators, &cur->donate_elem, higher_priority_donate, NULL);
+
+		int before_eff = w_lock_holder->eff_priority;	
+		if (cur->eff_priority <= before_eff) break;
+		
+		// 2. 새로운 유효 우선순위 계산
+		recompute_eff_priority(w_lock_holder);
+		
+		// 변화 없으면 기부 안한걸로 치고 그 뒤 전파도 필요 없음
+		if (w_lock_holder->eff_priority == before_eff) break; 
+
+		if (w_lock_holder->status == THREAD_READY) {
+			requeue_ready_list(w_lock_holder);
+		}
+		
+		cur = w_lock_holder;
+	}
+
+	intr_set_level(old);
+}
+
+/**
+ * donators가 비어있다면 new_eff = cur->eff_priority
+ * donators가 비어있지 않다면 new_eff = max(기부자 중 짱, ~~);
+ */
+void recompute_eff_priority(struct thread *t){
+		enum intr_level old = intr_disable();
+
+		int new_eff = t->priority;  // Start with thread's base priority
+		if (!list_empty(&t->donators)) {
+			struct thread *top = list_entry(list_front(&t->donators), struct thread, donate_elem);
+			new_eff = max(top->eff_priority, t->priority);
+		}
+
+		t->eff_priority = new_eff;
+		intr_set_level(old);
+}
+
+int max(int a, int b){
+	return (a >= b) ? a : b;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -210,8 +328,7 @@ lock_acquire (struct lock *lock) {
 
    This function will not sleep, so it may be called within an
    interrupt handler. */
-bool
-lock_try_acquire (struct lock *lock) {
+bool lock_try_acquire (struct lock *lock) {
 	bool success;
 
 	ASSERT (lock != NULL);
@@ -227,15 +344,70 @@ lock_try_acquire (struct lock *lock) {
    This is lock_release function.
 
    An interrupt handler cannot acquire a lock, so it does not
-   make sense to try to release a lock within an interrupt
-   handler. */
-void
-lock_release (struct lock *lock) {
+   make sense to try to release a lock within an interrupt 
+   handler. */ 
+
+/**
+ * (주의 : 인터럽트 핸들러에 의해 호출되면 안되는 메서드)
+ * 락해제 시 해야할 일 
+ * 1. 유효 우선순위 반납
+ * - 해당 락때문에 donate된 유효 우선순위 반납 
+ * - 물론, 무조건 base_priority로 되는건 아님
+ * - 반납 후 donators에도 제외
+ * 
+ * 2. waiting하고 있는애 깨워주기만??
+ * 
+ */
+void lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
 
+	enum intr_level old = intr_disable();
+	struct thread *cur = lock->holder;
+	/**
+	 * 1. 그 락의 우선순위에 영향 미친애들 전부 찾고 donators에서 제거 
+	 * - pintos는 list의 header, tail을 센티널로 관리한다.
+	 * - list_begin, list_end는 이 센티널을 가리킴 
+	 * 2. eff 재계산 or 조건부 재계산
+	 * 3. BLOCKED 된 애 READY 로 깨워주기 - 이건 sema_up이 알아서 함 
+	 */
+	// todo : donators 비었는지 확인, cur 우선순위 낮아졌다면 양보 필요, 근데 sema_up, unblock이 해주지 않나?
+	int before_eff_priority = cur->eff_priority;
+	struct thread *next = NULL;
+	if (!list_empty(&cur->donators)){
+		// 1. 
+		remove_donators_related_lock(cur, lock);
+		// 2. 
+		recompute_eff_priority(cur);
+	}
+
+	// 더 낮아 졌고, READY상태라면 => ready_list 초기화
+	if ((before_eff_priority != cur->eff_priority) &&
+		cur->status == THREAD_READY) {
+		requeue_ready_list(cur);
+	}
+
 	lock->holder = NULL;
-	sema_up (&lock->semaphore);
+	// 3. 
+	sema_up (&lock->semaphore); // 여기서 어차피 unblock함
+
+
+
+	intr_set_level(old);
+}
+
+// 주어진 락을 기다리는 donators 전부 삭제 
+void remove_donators_related_lock(struct thread *t, struct lock *lock){
+	struct list_elem *e = list_begin(&t->donators);
+	while (e != list_end(&t->donators))
+	{
+		struct thread *donor_thread = list_entry(e, struct thread, donate_elem);
+		struct list_elem *next = list_next(e); 
+		if (donor_thread->waiting_lock == lock){
+			list_remove(&donor_thread->donate_elem);		
+		}
+		e = next;
+	}	
 }
 
 /* Returns true if the current thread holds LOCK, false
