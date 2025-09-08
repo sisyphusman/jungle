@@ -93,6 +93,9 @@ struct thread {
 	int priority;                       /* Priority. */
 	int eff_priority;
 	struct list donators;
+	struct lock *waiting_lock;
+	struct list held_locks;
+	
 	int64_t wake_up_time;               /* Time to wake up. */
 
 	/* Shared between thread.c and synch.c. */
@@ -145,6 +148,7 @@ void thread_yield (void);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+void requeue_ready_list(struct thread *t);
 
 int thread_get_nice (void);
 void thread_set_nice (int);

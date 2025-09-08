@@ -35,6 +35,7 @@
 
 static list_more_func higher_priority_basic;
 static list_more_func higher_priority_donate;
+static bool is_contain(struct list *target_list, struct list_elem *target_elem);
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -64,8 +65,10 @@ void sema_down (struct semaphore *sema) {
 
 	ASSERT (sema != NULL);
 	ASSERT (!intr_context ());
-
+	
+	// 보유한 락의 sema_donw 시 종료시키기 
 	struct thread *cur = thread_current();
+	// cur.lock
 	
 	old_level = intr_disable ();
 	while (sema->value == 0) {
@@ -78,7 +81,7 @@ void sema_down (struct semaphore *sema) {
 
 static bool higher_priority_basic(const struct list_elem *a,
                              const struct list_elem *b,
-                             void *aux){
+                             void *aux UNUSED){
 	const struct thread *thread_a = list_entry(a, struct thread, elem);
 	const struct thread *thread_b = list_entry(b, struct thread, elem);
   return thread_a->eff_priority > thread_b->eff_priority;
@@ -86,7 +89,7 @@ static bool higher_priority_basic(const struct list_elem *a,
 
 static bool higher_priority_donate(const struct list_elem *a,
                              const struct list_elem *b,
-                             void *aux){
+                             void *aux UNUSED){
 	const struct thread *thread_a = list_entry(a, struct thread, donate_elem);
 	const struct thread *thread_b = list_entry(b, struct thread, donate_elem);
   return thread_a->eff_priority > thread_b->eff_priority;
@@ -239,10 +242,11 @@ void lock_acquire (struct lock *lock) {
 		propagate_eff_priority();
 	}
 
+	// 지금 문제 : lock을 획득하고 sema_down을 하면 걍 종료해야 함 
 	sema_down (&lock->semaphore);
-	lock->holder = thread_current ();
+	lock->holder = cur;
 	// Clear waiting_lock since we now have the lock
-	thread_current()->waiting_lock = NULL;
+	cur->waiting_lock = NULL;
 
 	intr_set_level(old);
 }
@@ -254,15 +258,6 @@ void lock_acquire (struct lock *lock) {
  * 3. 변경 됐고 ready상태라면 ready_list update
  */
 // todo : 분기가 너무 많긴한데 나중에 고쳐보자 
-
-static bool is_contain(struct list *target_list, struct list_elem *target_elem) {
-	struct list_elem *e;
-	for (e = list_begin(target_list); e != list_end(&target_list); e = list_next(e)) {
-		if (e == target_elem) return true;
-	}
-
-	return false;
-}
 
 void propagate_eff_priority() {
 
@@ -299,6 +294,15 @@ void propagate_eff_priority() {
 	}
 
 	intr_set_level(old);
+}
+
+bool is_contain(struct list *target_list, struct list_elem *target_elem) {
+	struct list_elem *e;
+	for (e = list_begin(target_list); e != list_end(target_list); e = list_next(e)) {
+		if (e == target_elem) return true;
+	}
+
+	return false;
 }
 
 /**

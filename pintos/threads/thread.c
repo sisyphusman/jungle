@@ -362,7 +362,7 @@ static bool higher_priority_basic(const struct list_elem *a,
 
 /* Returns the current thread's priority. */
 int thread_get_priority (void) {
-	return thread_current ()->priority;
+	return thread_current ()->eff_priority;
 }
 
 
@@ -372,9 +372,7 @@ void requeue_ready_list(struct thread *t){
 	list_insert_ordered(&ready_list, &t->elem, higher_priority_basic, NULL);
 }
 
-int get_top_in_ready_list() {
 
-}
 
 /* Sets the current thread's nice value to NICE. */
 void
@@ -461,6 +459,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 	memset (t, 0, sizeof *t);
 	list_init(&t->donators); // donators 추가 
+	list_init(&t->held_locks); 
 
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);

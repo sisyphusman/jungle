@@ -37,6 +37,10 @@ void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
+void recompute_eff_priority(struct thread *t);
+void propagate_eff_priority(void);
+void remove_donators_related_lock(struct thread *t, struct lock *lock);
+int max(int a, int b);
 
 /* Optimization barrier.
  *
