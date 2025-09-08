@@ -79,12 +79,12 @@ typedef int tid_t;
  * the `magic' member of the running thread's `struct thread' is
  * set to THREAD_MAGIC.  Stack overflow will normally change this
  * value, triggering the assertion. */
-/* The `elem' member has a dual purpose.  It can be an element in
- * the run queue (thread.c), or it can be an element in a
- * semaphore wait list (synch.c).  It can be used these two ways
- * only because they are mutually exclusive: only a thread in the
- * ready state is on the run queue, whereas only a thread in the
- * blocked state is on a semaphore wait list. */
+ /* The `elem' member has a dual purpose.  It can be an element in
+  * the run queue (thread.c), or it can be an element in a
+  * semaphore wait list (synch.c).  It can be used these two ways
+  * only because they are mutually exclusive: only a thread in the
+  * ready state is on the run queue, whereas only a thread in the
+  * blocked state is on a semaphore wait list. */
 struct thread {
 	/* Owned by thread.c. */
 	tid_t tid;                          /* Thread identifier. */
@@ -92,15 +92,20 @@ struct thread {
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
 
+	/* Shared between thread.c and synch.c. */
+	// 리스트의 노드 역할 -> 갈고리같은거임 list가  ll로 되어있으니까 여기에다가 앞뒤로 줄매세요
+	struct list_elem elem;              /* List element. */
+
 	// 여기 추가
 	int64_t ticks_awake; // 일어날 시간 
-
-	/* Shared between thread.c and synch.c. */
-	struct list_elem elem;              /* List element. */
+	int priority_original; // 원래 우선순위
+	struct list lst_donation; // 이 쓰레드에게 기부 해준 쓰레드들 저장
+	struct list_elem lst_donation_elem; // 기부자들 노드
+	struct lock* lock_donated_for_waiting; // 이 쓰레드가 무슨 락을 대기하고있는지
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
-	uint64_t *pml4;                     /* Page map level 4 */
+	uint64_t* pml4;                     /* Page map level 4 */
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
@@ -112,45 +117,47 @@ struct thread {
 	unsigned magic;                     /* Detects stack overflow. */
 };
 
+
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
-void thread_init (void);
-void thread_start (void);
+void thread_init(void);
+void thread_start(void);
 
-void thread_tick (void);
-void thread_print_stats (void);
+void thread_tick(void);
+void thread_print_stats(void);
 
-typedef void thread_func (void *aux);
-tid_t thread_create (const char *name, int priority, thread_func *, void *);
+typedef void thread_func(void* aux);
+tid_t thread_create(const char* name, int priority, thread_func*, void*);
 
-void thread_block (void);
-void thread_unblock (struct thread *);
+void thread_block(void);
+void thread_unblock(struct thread*);
 
-struct thread *thread_current (void);
-tid_t thread_tid (void);
-const char *thread_name (void);
+struct thread* thread_current(void);
+tid_t thread_tid(void);
+const char* thread_name(void);
 
-void thread_exit (void) NO_RETURN;
-void thread_yield (void);
+void thread_exit(void) NO_RETURN;
+void thread_yield(void);
 
 // 여기 추가
 void thread_sleep(int64_t ticks);
-bool sort_thread_ticks(struct list_elem *a, struct list_elem *b);
-void thread_awake (int64_t ticks);
-bool sort_thread_priority(struct list_elem *a, struct list_elem *b);
+bool sort_thread_ticks(struct list_elem* a, struct list_elem* b);
+void thread_awake(int64_t ticks);
+bool sort_thread_priority(struct list_elem* a, struct list_elem* b);
 void thread_swap_prior(void);
 
-int thread_get_priority (void);
-void thread_set_priority (int new_priority);
+int thread_get_priority(void);
+void thread_set_priority(int new_priority);
 
-int thread_get_nice (void);
-void thread_set_nice (int);
-int thread_get_recent_cpu (void);
-int thread_get_load_avg (void);
+int thread_get_nice(void);
+void thread_set_nice(int);
+int thread_get_recent_cpu(void);
+int thread_get_load_avg(void);
 
-void do_iret (struct intr_frame *tf);
+void do_iret(struct intr_frame* tf);
 
 #endif /* threads/thread.h */
