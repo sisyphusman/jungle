@@ -249,6 +249,8 @@ void thread_unblock (struct thread *t) {
 	// 	if (intr_context()) intr_yield_on_return();
 	// 	else thread_yield();
 	// }
+	// 깨운다해도 자원 0 <<< 가질수가 없어 
+
 	intr_set_level (old_level);
 }
 
