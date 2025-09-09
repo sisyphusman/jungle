@@ -36,7 +36,6 @@
 static list_more_func higher_priority_basic;
 static list_more_func higher_priority_donate;
 static bool is_contain(struct list *target_list, struct list_elem *target_elem);
-static bool is_semaphore_contain(struct thread *t, struct semaphore *sema);
 static bool cond_sema_more (const struct list_elem *a,
                             const struct list_elem *b,
                             void *aux UNUSED); 
@@ -79,25 +78,6 @@ void sema_down (struct semaphore *sema) {
 	}
 	sema->value--;
 	intr_set_level (old_level);
-}
-
-bool is_semaphore_contain(struct thread *t, struct semaphore *sema) {
-	ASSERT(t != NULL);
-	ASSERT(sema != NULL);
-
-	if (list_empty(&t->held_locks)) return false;
-
-	struct list_elem *e = list_begin(&t->held_locks);
-	while (e != NULL && e != list_end(&t->held_locks))
-  {
-		struct lock *hold = list_entry(e, struct lock, elem);
-		if (&hold->semaphore == sema){
-			return true;
-		}
-		
-		e = list_next(e);
-	}
-	return false;
 }
 
 static bool higher_priority_basic(const struct list_elem *a,
@@ -149,20 +129,20 @@ void sema_up (struct semaphore *sema) {
 	enum intr_level old_level;
 
 	ASSERT (sema != NULL);
-
 	old_level = intr_disable ();
 	struct thread *next = NULL;
+	// 깨우자 
 	if (!list_empty (&sema->waiters)) {
 		list_sort(&sema->waiters, higher_priority_basic, NULL);
-		struct list_elem *e = list_pop_front(&sema->waiters);
-		next = list_entry (e, struct thread, elem);
+		next = list_entry (list_pop_front(&sema->waiters), struct thread, elem);
 		thread_unblock(next);
 	}
 	
+	// 값 증가 
 	sema->value++;
 	intr_set_level (old_level);
 
-	/* If the unblocked thread has higher priority, yield. */
+	// 깨웠으니 양보해야지 
 	if (next && next->eff_priority > thread_current()->eff_priority) {
 		if (intr_context()) intr_yield_on_return();
 		else thread_yield();
@@ -236,7 +216,6 @@ void lock_init (struct lock *lock) {
    we need to sleep. */
 
 /**
- * 락 획득 시도 => 
  * 1. 주인이 있으면 
  * - 대기자 등록 in sema => sema_down()에서 구현되어 있음
  * - 전파하기 
@@ -274,7 +253,6 @@ void lock_acquire (struct lock *lock) {
  * 3. 변경 됐고 ready상태라면 ready_list update
  */
 // todo : 분기가 너무 많긴한데 나중에 고쳐보자 
-
 void propagate_eff_priority() {
 
 	enum intr_level old = intr_disable();
@@ -286,7 +264,6 @@ void propagate_eff_priority() {
 	{
 		struct thread *w_lock_holder = w_lock->holder;
 		// 1. lock_donators 재정렬
-		// Only remove if the element is already in a list
 		bool is_donator = is_contain(&w_lock_holder->donators, &cur->donate_elem);
 		if (!list_empty(&w_lock_holder->donators) && is_donator){
 				list_remove(&cur->donate_elem);
@@ -328,7 +305,7 @@ bool is_contain(struct list *target_list, struct list_elem *target_elem) {
 void recompute_eff_priority(struct thread *t){
 		enum intr_level old = intr_disable();
 
-		int new_eff = t->priority;  // Start with thread's base priority
+		int new_eff = t->priority;  
 		if (!list_empty(&t->donators)) {
 			struct thread *top = list_entry(list_front(&t->donators), struct thread, donate_elem);
 			new_eff = max(top->eff_priority, t->priority);
@@ -370,13 +347,13 @@ bool lock_try_acquire (struct lock *lock) {
 /**
  * (주의 : 인터럽트 핸들러에 의해 호출되면 안되는 메서드)
  * 락해제 시 해야할 일 
- * 1. 유효 우선순위 반납
- * - 해당 락때문에 donate된 유효 우선순위 반납 
- * - 물론, 무조건 base_priority로 되는건 아님
- * - 반납 후 donators에도 제외
- * 
- * 2. waiting하고 있는애 깨워주기만??
- * 
+ * 1. 해당 Lock과 관련된 donators 제거 - remove_donators_related_lock()
+ * 2. 유효 우선순위 재계산 - recompute_~~()
+ *	 - donators가 변경됐으니 재계산 必
+ * 3. 유효 우선순위가 바꼈다면 READY_QUEUE 갱신 必
+ * 4. 본격적인 Lock 해제 작업  
+ * 	- lock_holder = NULL
+ *	 - sema_up() : 여기서 깨우는 작업도 할 것임
  */
 void lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
@@ -384,14 +361,6 @@ void lock_release (struct lock *lock) {
 
 	enum intr_level old = intr_disable();
 	struct thread *cur = lock->holder;
-	/**
-	 * 1. 그 락의 우선순위에 영향 미친애들 전부 찾고 donators에서 제거 
-	 * - pintos는 list의 header, tail을 센티널로 관리한다.
-	 * - list_begin, list_end는 이 센티널을 가리킴 
-	 * 2. eff 재계산 or 조건부 재계산
-	 * 3. BLOCKED 된 애 READY 로 깨워주기 - 이건 sema_up이 알아서 함 
-	 */
-	// todo : donators 비었는지 확인, cur 우선순위 낮아졌다면 양보 필요, 근데 sema_up, unblock이 해주지 않나?
 	int before_eff_priority = cur->eff_priority;
 	struct thread *next = NULL;
 	if (!list_empty(&cur->donators)){
@@ -401,14 +370,14 @@ void lock_release (struct lock *lock) {
 		recompute_eff_priority(cur);
 	}
 
-	// 더 낮아 졌고, READY상태라면 => ready_list 초기화
+	// 3. ready_list 초기화 : 더 낮아 졌고, READY상태라면 ㄱㄱ
 	if ((before_eff_priority != cur->eff_priority) &&
 		cur->status == THREAD_READY) {
 		requeue_ready_list(cur);
 	}
 
+	// 4. 
 	lock->holder = NULL;
-	// 3. 
 	sema_up (&lock->semaphore); // 여기서 어차피 unblock함
 
 	intr_set_level(old);
@@ -485,6 +454,7 @@ cond_init (struct condition *cond) {
  * 4. 잠금 재획득 : 깼는데 lock->holder가 없으면 락획득?
  */
 void cond_wait (struct condition *cond, struct lock *lock) {
+
 	struct semaphore_elem waiter;
 
 	ASSERT (cond != NULL);

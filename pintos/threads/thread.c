@@ -245,11 +245,6 @@ void thread_unblock (struct thread *t) {
 	ASSERT (t->status == THREAD_BLOCKED);
 	list_insert_ordered(&ready_list, &t->elem, higher_priority_basic, NULL);
 	t->status = THREAD_READY;
-	// if (t != idle_thread && t->eff_priority > thread_current()->eff_priority){	
-	// 	if (intr_context()) intr_yield_on_return();
-	// 	else thread_yield();
-	// }
-	// 깨운다해도 자원 0 <<< 가질수가 없어 
 
 	intr_set_level (old_level);
 }
