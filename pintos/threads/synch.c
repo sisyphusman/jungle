@@ -411,8 +411,6 @@ void lock_release (struct lock *lock) {
 	// 3. 
 	sema_up (&lock->semaphore); // 여기서 어차피 unblock함
 
-
-
 	intr_set_level(old);
 }
 
@@ -457,15 +455,16 @@ cond_init (struct condition *cond) {
 }
 
 /* Atomically releases LOCK and waits for COND to be signaled by
-   some other piece of code.  After COND is signaled, LOCK is
-   reacquired before returning.  LOCK must be held before calling
-   this function.
+   some other piece of code.  
+	 After COND is signaled, LOCK is reacquired before returning.
+	 LOCK must be held before calling this function.
 
    The monitor implemented by this function is "Mesa" style, not
    "Hoare" style, that is, sending and receiving a signal are not
    an atomic operation.  Thus, typically the caller must recheck
    the condition after the wait completes and, if necessary, wait
    again.
+	 // 핵심 : 콜러는 깨고나서 다시 체크할 필요가 있다.
 
    A given condition variable is associated with only a single
    lock, but one lock may be associated with any number of
@@ -476,8 +475,16 @@ cond_init (struct condition *cond) {
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-void
-cond_wait (struct condition *cond, struct lock *lock) {
+
+/**
+ * 목적 : 현재 갖고 있는 락을 잠시 풀어줘서 다른 스레드도 기회 주는 것 
+ * 이전 조건 : lock을 가지고 있었어야 됨 
+ * 1. "잠금 해제 → 대기 → 잠금 재획득
+ * 2. 잠금 해제 : 잠금을 풀어서 다른 스레드가 조건을 변경하도록 유도 + 데드락 방지
+ * 3. 대기 : sema value가 0임에도 sema_down 호출 until 시그널 받을 때까지 
+ * 4. 잠금 재획득 : 깼는데 lock->holder가 없으면 락획득?
+ */
+void cond_wait (struct condition *cond, struct lock *lock) {
 	struct semaphore_elem waiter;
 
 	ASSERT (cond != NULL);
@@ -485,24 +492,39 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (lock_held_by_current_thread (lock));
 
+	// 1. 
 	sema_init (&waiter.semaphore, 0);
+	// cond->waiters : 어떤 스레드가 현재 이 조건 변수를 기다리고 있는지 추적 
 	list_insert_ordered(&cond->waiters, &waiter.elem, cond_sema_more, NULL);
-	//list_push_back (&cond->waiters, &waiter.elem);
 	lock_release (lock);
+	
 	sema_down (&waiter.semaphore);
-	lock_acquire (lock);
+	lock_acquire(lock);
 }
 
 static bool cond_sema_more (const struct list_elem *a,
                             const struct list_elem *b,
                             void *aux UNUSED) {
-  const struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
-  const struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
+  const struct semaphore sema_a = list_entry(a, struct semaphore_elem, elem)->semaphore;
+  const struct semaphore sema_b = list_entry(b, struct semaphore_elem, elem)->semaphore;
+
+	int eff_a = -1;
+	int eff_b = -1;
+	if (!list_empty(&sema_a.waiters)) {
+		struct thread *a = list_entry(list_front(&sema_a.waiters), struct thread, elem);
+		eff_a = a->eff_priority;
+	}
+
+	if (!list_empty(&sema_b.waiters)) {
+		struct thread *b = list_entry(list_front(&sema_b.waiters), struct thread, elem);
+		eff_b = b->eff_priority;
+	}
 
   // 각 세마의 웨이터들 중 가장 높은 우선순위 스레드를 비교
-  struct thread *ta = list_entry(list_front(&sa->semaphore.waiters), struct thread, elem);
-  struct thread *tb = list_entry(list_front(&sb->semaphore.waiters), struct thread, elem);
-  return ta->eff_priority > tb->eff_priority;
+	// sa->semaphore
+  // struct thread *ta = list_entry(list_front(&sa->semaphore.waiters), struct thread, elem);
+  // struct thread *tb = list_entry(list_front(&sb->semaphore.waiters), struct thread, elem);
+  return eff_a > eff_b;
 }
 
 /* If any threads are waiting on COND (protected by LOCK), then
@@ -519,9 +541,14 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (!intr_context ());
 	ASSERT (lock_held_by_current_thread (lock));
 
-	if (!list_empty (&cond->waiters))
+	enum intr_level old = intr_disable();
+	if (!list_empty (&cond->waiters)){
+		list_sort(&cond->waiters, cond_sema_more, NULL);
 		sema_up (&list_entry (list_pop_front (&cond->waiters),
 					struct semaphore_elem, elem)->semaphore);
+	}
+		
+	intr_set_level(old);
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
