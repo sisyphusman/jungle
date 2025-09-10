@@ -510,7 +510,7 @@ void thread_set_nice (int nice UNUSED)
 	struct thread *t = thread_current();
 
     enum intr_level old_level = intr_disable();
-    t->niceness = nice;
+    t->nice = nice;
     mlfqs_priority(t);
     intr_set_level(old_level);
 }
@@ -522,7 +522,7 @@ int thread_get_nice (void)
 	 struct thread *t = thread_current();
 
     enum intr_level old_level = intr_disable();
-    int nice = t->niceness;
+    int nice = t->nice;
     intr_set_level(old_level);
 
     return nice;
@@ -630,7 +630,7 @@ static void init_thread (struct thread *t, const char *name, int priority)
 	t->lock_donated_for_waiting = NULL;
 	list_init(&(t->lst_donation));
 
-	t->niceness = 0;
+	t->nice = 0;
     t->recent_cpu = 0;
 
 }
@@ -819,14 +819,14 @@ void mlfqs_priority (struct thread *t)
 {
     if (t == idle_thread) return;
 
-    t->priority = fp_to_int(add_n(div_n(t->recent_cpu, -4), PRI_MAX - t->niceness * 2));
+    t->priority = fp_to_int(add_n(div_n(t->recent_cpu, -4), PRI_MAX - t->nice * 2));
 }
 
 void mlfqs_recent_cpu (struct thread *t) 
 {
     if (t == idle_thread) return;
 
-    t->recent_cpu = add_n(mult_fp(div_fp(mult_n(load_avg, 2), add_n(mult_n(load_avg, 2), 1)), t->recent_cpu), t->niceness);
+    t->recent_cpu = add_n(mult_fp(div_fp(mult_n(load_avg, 2), add_n(mult_n(load_avg, 2), 1)), t->recent_cpu), t->nice);
 }
 
 void mlfqs_load_avg (void) 

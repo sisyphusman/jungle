@@ -108,7 +108,7 @@ struct thread {
 	struct lock *lock_donated_for_waiting; // 이 쓰레드가 무슨 락을 대기하고있는지
 
 	// mlfqs
-	int niceness;
+	int nice;
 	int recent_cpu;
 	struct list_elem all_elem; 
 
