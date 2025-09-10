@@ -28,6 +28,8 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -109,6 +111,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
+	list_init (&sleep_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
@@ -192,6 +195,7 @@ thread_create (const char *name, int priority,
 	/* Initialize thread. */
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
+	t->wake_tick = 0;
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
@@ -306,6 +310,42 @@ thread_yield (void) {
 		list_push_back (&ready_list, &curr->elem);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
+}
+
+/* sleep_list 정렬을 위해 list_insert_ordered 3번째 인자에 들어갈 함수
+    wake_tick값을 비교해 작은 수가 앞에 오게 함 */
+static bool wake_less (const struct list_elem *a,
+                       const struct list_elem *b, void *aux) {
+  const struct thread *ta = list_entry(a, struct thread, elem);
+  const struct thread *tb = list_entry(b, struct thread, elem);
+  return ta->wake_tick < tb->wake_tick;
+}
+
+/* yield 바쁜대기 대신 들어갈 alarm clock 로직 */
+/* sleep list에 쓰레드 추가 */
+void thread_sleep (int64_t ticks) {
+
+	ASSERT (!intr_context ()); 
+	if (ticks <= 0) return; // ticks가 음수일 경우 바로 리턴
+
+	struct thread *curr = thread_current();
+	
+	enum intr_level origin_intr = intr_disable();	//인터럽트 끊고
+	curr->wake_tick = timer_ticks() + ticks;  // 깰 시간 설정
+	list_insert_ordered(&sleep_list, &curr->elem, wake_less, NULL); // sleep리스트 정렬삽입
+
+	thread_block(); // 블락하고
+
+	intr_set_level(origin_intr);	//인터럽트 다시 연결
+}
+
+void wake_thread (void) {
+	while (!list_empty(&sleep_list)) { 
+		struct thread *head_thread = list_entry(list_front(&sleep_list), struct thread, elem);
+		if (head_thread->wake_tick > timer_ticks()) break; // 아직 깰 때가 아닌 쓰레드는 스킵
+		list_pop_front(&sleep_list); // 제거하고
+		thread_unblock(head_thread); // ready 리스트로
+	}
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
