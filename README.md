@@ -31,9 +31,15 @@
 
 부분 테스트
 
+pintos 스크립트를 이용해서 alarm-multiple 테스트 프로그램을 바로 실행
+
 ```
 /threads/build/ pintos -- -q run alarm-multiple
+```
 
+Pintos 테스트 프레임워크를 이용해서 자동으로 특정 테스트를 실행하고 .result 파일을 생성
+
+```
 /threads/build/ make tests/threads/priority-sema.result
 
 ```
@@ -41,15 +47,6 @@
 &nbsp;
 
 ***
-1. PROJECT 1 - THREADS
-
-   ✅ Alarm Clock  
-   ✅ Priority Scheduling  
-   ✅ Priority Scheduling and Synchronization     
-   ✅ Priority Donation   
-   ❓ Multi-Level Feedback Queue Scheduler  
-
-&nbsp;
 
 2. PROJECT 2 - USER PROGRAMS  
 
