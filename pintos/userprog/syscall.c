@@ -49,7 +49,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		printf ("write 호출!\n");
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
-	
 	default:
 	 	printf("Unknown syscall: %d\n", (int)f->R.rax);
 		break;
@@ -60,7 +59,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 
 int write (int fd, const void *buffer, unsigned size){
-	
 	if(fd == 1){ // STDOUT
 		putbuf(buffer,size);
 		return size;
