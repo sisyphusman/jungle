@@ -8,6 +8,7 @@
     "tuple": "c",
     "type_traits": "c",
     "utility": "c",
-    "synch.h": "c"
+    "synch.h": "c",
+    "gdt.h": "c"
   }
 }

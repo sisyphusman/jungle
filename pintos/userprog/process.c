@@ -18,6 +18,7 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "include/lib/string.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -76,6 +77,7 @@ initd (void *f_name) {
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
+	
 	return thread_create (name,
 			PRI_DEFAULT, __do_fork, thread_current ());
 }
@@ -164,6 +166,8 @@ int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
+	printf("program_exec|| 어렵다");
+
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -176,8 +180,10 @@ process_exec (void *f_name) {
 	/* We first kill the current context */
 	process_cleanup ();
 
+
 	/* And then load the binary */
 	success = load (file_name, &_if);
+
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
@@ -185,7 +191,7 @@ process_exec (void *f_name) {
 		return -1;
 
 	/* Start switched process. */
-	do_iret (&_if);
+	do_iret (&_if); //유저 모드 진입 
 	NOT_REACHED ();
 }
 
@@ -201,10 +207,29 @@ process_exec (void *f_name) {
  * does nothing. */
 int
 process_wait (tid_t child_tid UNUSED) {
-	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
-	 * XXX:       to add infinite loop here before
-	 * XXX:       implementing the process_wait. */
-	return -1;
+	struct thread *curr = thread_current ();
+
+	
+		// struct list_elem *e = list_begin(&thread_current()->children_list);
+
+		// while(e != list_end(&thread_current()->children_list)){
+		// 	struct thread *t  = list_entry(e, struct thread, children_elem);
+		// 	struct list_elem *next = list_next(e);
+
+		// 	if(t->tid == child_tid){
+		// 		sema_down(&t->wait_sema);
+		// 		return;
+		// 	}
+
+		// 	e = next;
+
+		// }
+		
+	
+	const char msg[] = "process_wait || 겁나 어렵다 \n";
+	putbuf(msg, sizeof(msg)-1);
+	while(1);
+	 //return -1;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -215,6 +240,30 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
+
+	curr->is_exited = true;
+	//struct thread *parent_thread = curr->parent;
+	// 부모 프로세스에서 나 빼기 
+	// if(parent_thread){
+	// 	sema_up(&parent_thread->wait_sema);
+
+	// 	struct list_elem *e = list_begin(&parent_thread->children_list);
+
+	// 	while(e != list_end(&parent_thread->children_list)){
+	// 		struct thread *t  = list_entry(e, struct thread, children_elem);
+	// 		struct list_elem *next = list_next(e);
+
+	// 		if(t->tid == curr->tid){
+	// 			remove(e);
+	// 			return;
+	// 		}
+
+	// 		e = next;
+
+	// 	}
+		
+	// }
+
 
 	process_cleanup ();
 }
@@ -321,7 +370,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
 static bool
-load (const char *file_name, struct intr_frame *if_) {
+load (const char *file_name, struct intr_frame *if_) { //커널 모드에서 유저모드로 전환하기 위해 (유저)스택에 메모리를 할당하는 과정 
 	struct thread *t = thread_current ();
 	struct ELF ehdr;
 	struct file *file = NULL;
@@ -329,20 +378,27 @@ load (const char *file_name, struct intr_frame *if_) {
 	bool success = false;
 	int i;
 
-	/* Allocate and activate page directory. */
+	char command_copy[128];
+	char *program_command;
+	char *str_point;
+	printf("load  || passing해야지");
+	
+	strlcpy(command_copy, file_name, sizeof(command_copy));
+	program_command = strtok_r(command_copy, " ", &str_point);
+	/* Allocate and activate page directory. */ //페이지 테이블 생성
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
 		goto done;
 	process_activate (thread_current ());
 
-	/* Open executable file. */
-	file = filesys_open (file_name);
+	/* Open executable file. */ //파일을 염(비어있는지만 확인)
+	file = filesys_open (program_command);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
-	/* Read and verify executable header. */
+	/* Read and verify executable header. */ //읽으면서 살행가능한지 확인
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
 			|| ehdr.e_type != 2
@@ -354,7 +410,7 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	}
 
-	/* Read program headers. */
+	/* Read program headers. */ //헤더를 읽고 어떤 주소로 보내야할지 결정하고 보냄 (스택에 내용물 저장)
 	file_ofs = ehdr.e_phoff;
 	for (i = 0; i < ehdr.e_phnum; i++) {
 		struct Phdr phdr;
@@ -407,15 +463,73 @@ load (const char *file_name, struct intr_frame *if_) {
 		}
 	}
 
-	/* Set up stack. */
-	if (!setup_stack (if_))
+	/* Set up stack. */ //스택 할당(빈 공간)
+	if (!setup_stack (if_)) 
 		goto done;
 
-	/* Start address. */
+	/* Start address. */ //시작 위치 지정 
 	if_->rip = ehdr.e_entry;
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+
+
+	 //parsing
+	 char *args[64];
+	 args[0] = program_command;
+	 char *target;
+	 int num = 1;
+
+	while((target = strtok_r(NULL," ", &str_point)) != NULL){	
+
+		  if (num >= 64) { // args 배열이 꽉 찼으면 더 이상 받지 않음
+            break;
+        }
+		args[num] = target;
+		num++;
+
+	}
+	const int argc = num;
+	char *args_address[64];
+
+
+	//put into stack
+	//실제 값을 스택에 채워넣는 과정 
+	num = num -1;
+	int temp_num = num ;
+
+	// 실제값 스택에 넣기 
+	while(temp_num >=0){
+	if_ -> rsp -= strlen(args[temp_num])+ 1; //길이 + \0 만큼 내리고 거기다가 공간 넣을 꺼임
+	memcpy((void *) if_->rsp , args[temp_num],  strlen(args[temp_num])+ 1);
+	args_address[temp_num] = if_ -> rsp;
+	temp_num--;
+	}
+
+
+	//실제값이 있는 주소값을 할당
+	if_ ->rsp  = if_ -> rsp & ~0x7; //8배수 정렬 (0으로 바뀌는 것 밖에 없으니 주소값이 같거나 작아지니까 안심!)
+
+	temp_num = num;
+
+	if_->rsp -= 8;
+	*((void **)if_->rsp) = NULL; // 끝을 알리는 값 
+
+
+	while(temp_num >= 0){
+		if_->rsp -= 8;
+		*(void **)if_->rsp = args_address[temp_num]; //주소값 자체를 8바이트 공간에 그냥 써넣는 것 
+		//args_address[temp_num] 라는 주소로 가서, 거기 있는 8바이트를 읽어서 스택에 복사 그 주소는 우리가 접근할 수 없는 곳일 확률이 높음(memcpy가 안되는 이유)
+		temp_num--;
+
+	}
+
+	if_->R.rdi = argc; //총 갯수를 rdi에게 (0도 포함해야하기 때문에)
+	if_->R.rsi = (uint64_t)if_->rsp; // 시작 주소를 rsi에게
+
+	if_-> rsp -= 8;
+	*(void **)if_->rsp = 0; //main은 돌아갈 지점이 없기 때문에 거짓 주소를 반환해줌
+	 
 
 	success = true;
 
