@@ -1,3 +1,4 @@
+#include "filesys/filesys.h"
 #include "include/threads/init.h"
 #include "lib/kernel/console.h"
 #include "userprog/syscall.h"
@@ -16,6 +17,7 @@ static void sys_exit (int status);
 static int sys_write(int fd, const void *buf, size_t size);
 static void validate_user_buffer(const void *buf, size_t size);
 static void validate_fd(int fd);
+static bool file_create (const char *file, unsigned initial_size);
 
 
 /* System call.
@@ -75,8 +77,13 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_WAIT:
 			break;
 
-		case SYS_CREATE:
+		case SYS_CREATE: {
+			const char *file = (const char *) f->R.rdi;
+			unsigned initial_size = (int) f->R.rsi;
+			f->R.rax = file_create(file, initial_size);
 			break;
+		}
+			
 
 		case SYS_REMOVE:
 			break;
@@ -117,6 +124,15 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 	//printf ("system call!\n");
 	//thread_exit ();
 }
+
+
+// 파일이 성공적으로 생성 시 true 반환 
+// 생성만하고 open하지 않는다.
+bool file_create (const char *file, unsigned initial_size) {
+	validate_addr(file);
+	return filesys_create(file, initial_size);
+}
+
 
 void sys_exit(int status){
 
@@ -190,4 +206,10 @@ void validate_fd(int fd) {
 	// if (cur->fd_table[fd] == NULL) {
 	// 	sys_exit(-1);
 	// }
+}
+
+void validate_addr(const void *addr) {
+	if (addr == NULL || !(is_user_vaddr(addr)) || pml4_get_page(thread_current()->pml4, addr) == NULL) {
+		sys_exit(-1);
+	}
 }
