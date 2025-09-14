@@ -1,5 +1,3 @@
-#include "threads/synch.h"
-#include "include/threads/init.h"
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -45,9 +43,78 @@ syscall_init (void) {
 /* The main system call interface */
 void syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
+
+	// 왜 RAX인지??
+	int sys_number = f->R.rax;
+	switch (sys_number){
+		case SYS_HALT:
+			break;
+
+		case SYS_EXIT: {
+			int status = (int) f->R.rdi;  // exit status
+			sys_exit(status);
+			break;
+		}
+			
+		case SYS_FORK:
+			break;
+
+		case SYS_EXEC:
+
+			break;
+
+		case SYS_WAIT:
+			break;
+
+		case SYS_CREATE:
+			break;
+
+		case SYS_REMOVE:
+			break;
+
+		case SYS_OPEN:
+			break;
+
+		case SYS_FILESIZE:
+			break;
+
+		case SYS_READ:
+			break;
+
+		case SYS_WRITE:
+			break;
+
+		case SYS_SEEK:
+			break;
+
+		case SYS_TELL:
+			break;
+
+		case SYS_CLOSE:
+			break;
+
+		default:
+			break;
+	}
+
 	printf ("system call!\n");
 	thread_exit ();
 }
+
+void sys_exit(int status){
+
+	struct thread *cur = thread_current();
+	cur->exit_status = status;
+
+	struct thread *parent = cur->parent;
+	if (parent != NULL) {
+		sema_up(&cur->wait_sema);  // 꺠우고 ()
+		sema_down(&cur->exit_sema);
+	}
+
+	thread_exit();
+}
+
 
 void sys_exit(int status){
 
