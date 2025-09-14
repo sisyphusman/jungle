@@ -1,6 +1,12 @@
-args-dbl-space FAIL
-args-multiple FAIL
+args-dbl-space PASS
+args-multiple PASS
+create-normal PASS
+create-long FAIL
 args-none PASS
 create-bad-ptr FAIL
-args-many FAIL
-args-single FAIL
+halt PASS
+create-null FAIL
+exit PASS
+args-many PASS
+create-empty FAIL
+args-single PASS

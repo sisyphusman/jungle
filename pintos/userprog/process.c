@@ -202,6 +202,8 @@ int process_exec (void *f_name) {
 	success = load (argv[0], &_if);
 	build_stack(&_if, argv, argc);
 
+	strlcpy(thread_current()->name, argv[0], sizeof(thread_current()->name));
+
 	palloc_free_page (f_name);
 	if (!success){
 		return -1;
