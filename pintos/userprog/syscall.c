@@ -1,3 +1,5 @@
+#include "devices/input.h"
+#include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "include/threads/init.h"
 #include "lib/kernel/console.h"
@@ -19,9 +21,11 @@ static int sys_write(int fd, const void *buf, size_t size);
 static void validate_user_buffer(const void *buf, size_t size);
 static void validate_fd(int fd);
 static bool file_create (const char *file, unsigned initial_size);
-static struct lock filesys_lock;
 static int open_file(const char *file);
+static int read(int fd, void *buffer, unsigned size);
+static struct file *find_file_by_fd(int fd);
 
+static struct lock filesys_lock;
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -100,11 +104,21 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		}
 
 
-		case SYS_FILESIZE:
-			break;
+		case SYS_FILESIZE:{
 
-		case SYS_READ:
 			break;
+		}
+			
+
+		case SYS_READ: {
+			int fd = (int) f->R.rdi;
+			void *buf = (void *) f->R.rsi;
+			unsigned size = (unsigned) f->R.rdx;
+			int result = read(fd, buf, size);
+			f->R.rax = result;
+			break;
+		}
+			
 
 		case SYS_WRITE:{
 			int fd = (int) f->R.rdi;
@@ -134,6 +148,46 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 	//thread_exit ();
 }
 
+
+// return : 실제 읽은 값  (오류 시 -1)
+int read (int fd, void *buffer, unsigned size) {
+	if (fd == STDIN_FILENO){
+		for (int i = 0; i < size; i++){
+			((uint8_t *)buffer)[i] = input_getc();
+		}
+		return size;
+	}
+
+	if (fd == 1 || size < 0) {
+		return -1;
+	}
+	
+	validate_addr(buffer);
+
+	lock_acquire(&filesys_lock);
+	struct file *to_read_file = find_file_by_fd(fd);
+	lock_release(&filesys_lock);
+	if (to_read_file == NULL) {
+		return -1;
+	}
+  
+	return file_read(to_read_file, buffer, (off_t) size);
+}
+
+struct file *find_file_by_fd(int fd){
+	const struct thread *cur = thread_current();
+
+	for(struct list_elem *e = list_begin(&cur->fd_table);
+		e != list_end(&cur->fd_table);
+		e = list_next(e))
+	{
+		struct fd_table_entry *entry = list_entry(e, struct fd_table_entry, elem);
+		if (entry->fd == fd){
+			return entry->file;
+		}
+	}
+	return NULL;
+}
 
 /**
  * Return
