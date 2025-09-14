@@ -95,9 +95,6 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_OPEN:{
 			const char *file = (const char *) f->R.rdi;
 			int result = open_file(file);
-			if (result == -1){
-				sys_exit(-1);
-			}
 			f->R.rax = result;
 			break;
 		}
