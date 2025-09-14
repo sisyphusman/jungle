@@ -204,6 +204,9 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	t->parent = thread_current ();
+	list_push_back(&thread_current()->children, &t->child_elem);
+
 	/* Add to run queue. */
 	thread_unblock (t);
 
@@ -465,10 +468,9 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->priority = priority;
 	t->eff_priority = priority;
 	t->exit_status = 0;
-	t->parent = thread_current();
+	
 	sema_init(&t->wait_sema, 0);
 	sema_init(&t->exit_sema, 0);
-	list_push_back(&thread_current()->children, &t->child_elem);
 	t->magic = THREAD_MAGIC;
 }
 

@@ -1,3 +1,4 @@
 args-multiple FAIL
-args-none FAIL
+args-none PASS
+create-bad-ptr FAIL
 args-single FAIL

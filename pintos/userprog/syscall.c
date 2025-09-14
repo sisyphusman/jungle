@@ -1,3 +1,4 @@
+#include "lib/kernel/console.h"
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -10,6 +11,11 @@
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+static void sys_exit (int status);
+static int sys_write(int fd, const void *buf, size_t size);
+static void validate_user_buffer(const void *buf, size_t size);
+static void validate_fd(int fd);
+
 
 /* System call.
  *
@@ -52,6 +58,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 
 		case SYS_EXIT: {
 			int status = (int) f->R.rdi;  // exit status
+			// printf("SYS_EXIT 호출로 받은 exit status : %d\n", status);
 			sys_exit(status);
 			break;
 		}
@@ -81,8 +88,15 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_READ:
 			break;
 
-		case SYS_WRITE:
+		case SYS_WRITE:{
+			int fd = (int) f->R.rdi;
+			const void *buf = (const void *) f->R.rsi;
+			size_t size = (int) f->R.rdx;
+			f->R.rax = sys_write(fd, buf, size);
 			break;
+		}
+
+			
 
 		case SYS_SEEK:
 			break;
@@ -93,43 +107,29 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE:
 			break;
 
-		default:
-			break;
+		default:{
+			sys_exit(-1);
+		}
 	}
 
-	printf ("system call!\n");
-	thread_exit ();
+	//printf ("system call!\n");
+	//thread_exit ();
 }
 
 void sys_exit(int status){
 
 	struct thread *cur = thread_current();
 	cur->exit_status = status;
+	printf("%s: exit(%d)\n", cur->name, status);
 
-	struct thread *parent = cur->parent;
-	if (parent != NULL) {
+	//if (cur->)
+	if (cur->parent != NULL){
 		sema_up(&cur->wait_sema);  // 꺠우고 ()
 		sema_down(&cur->exit_sema);
 	}
-
+	
 	thread_exit();
 }
-
-
-void sys_exit(int status){
-
-	struct thread *cur = thread_current();
-	cur->exit_status = status;
-
-	struct thread *parent = cur->parent;
-	if (parent != NULL) {
-		sema_up(&cur->wait_sema);  // 꺠우고 ()
-		sema_down(&cur->exit_sema);
-	}
-
-	thread_exit();
-}
-
 
 
 // Note : arg buf는 사용자 프로세스 주소 공간에 있는 포인터 
@@ -188,12 +188,4 @@ void validate_fd(int fd) {
 	// if (cur->fd_table[fd] == NULL) {
 	// 	sys_exit(-1);
 	// }
-}
-
-void sys_exit(int staus){
-	// 임시 
-	struct thread *cur = thread_current();
-	cur->status = staus;
-
-	thread_exit();
 }

@@ -1,4 +1,4 @@
-#include "synch.h"
+#include "threads/synch.h"
 #include "include/lib/string.h"
 #include "userprog/process.h"
 #include <debug.h>
@@ -33,6 +33,8 @@ static void __do_fork (void *);
 static int tokenize_command_line(char *command_line, char **argv);
 static void *push(struct intr_frame *interrupt_frame, const void *src, size_t n);
 static void align_stack(struct intr_frame *interrupt_frame);
+static void build_stack(struct intr_frame *interrupt_frame, char *argv[], int argc);
+static struct thread *find_child_thread_by_tid(tid_t child_tid);
 
 
 /* General process initializer for initd and other process. */
@@ -247,7 +249,7 @@ void build_stack(struct intr_frame *interrupt_frame, char *argv[], int argc) {
 	 uintptr_t user_arg_ptrs[MAX_ARGV];
 	 for (int i = argc - 1; i >= 0; i--){
 		void *str_addr = push(interrupt_frame, argv[i], (strlen(argv[i]) + 1));
-		user_arg_ptrs[i] = str_addr;
+		user_arg_ptrs[i] = (uintptr_t) str_addr;
 	 }
 
 	 // 2. 정렬 
@@ -298,7 +300,7 @@ int process_wait (tid_t child_tid UNUSED) {
 	 * 4. 자식 스레드 깨우기 - 자식도 정리하라고 
 	 * 5. 자식 스레드의 종료 상태를 반환 
 	 */
-	struct thread *child = get_child_thread(child_tid);
+	struct thread *child = find_child_thread_by_tid(child_tid);
 	if (child == NULL){
 		return -1;
 	}
@@ -314,7 +316,7 @@ int process_wait (tid_t child_tid UNUSED) {
 	return status;
 }
 
-struct thread *get_child_thread(tid_t child_tid) {
+static struct thread *find_child_thread_by_tid(tid_t child_tid) {
 	struct list *child_list = &thread_current()->children;
 	for (struct list_elem *e = list_begin(child_list);
 			e != list_end(child_list); e = list_next(e)) {
@@ -331,14 +333,7 @@ struct thread *get_child_thread(tid_t child_tid) {
 void process_exit (void) {
 
 	struct thread *cur = thread_current();
-
-	// 고아처리 
-	for (struct list_elem *e = list_begin(&cur->children);
-			e != list_end(&cur->children); e = list_next(e)) {
-		struct thread *child = list_entry(e, struct thread, child_elem);
-		child->parent = NULL; 
-		list_remove(&child->child_elem);
-	}
+	// printf("%s: exit(%d)\n", cur->name, cur->exit_status);
 
 	/** 동기화를 여기다 처리하지 말기 : 
 	 * 동기화는 종료 이벤트가 확정되는 지점에서 하는 것이 좋다.
