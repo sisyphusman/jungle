@@ -1,4 +1,6 @@
+args-dbl-space FAIL
 args-multiple FAIL
 args-none PASS
 create-bad-ptr FAIL
+args-many FAIL
 args-single FAIL

@@ -1,3 +1,4 @@
+#include "include/threads/init.h"
 #include "lib/kernel/console.h"
 #include "userprog/syscall.h"
 #include <stdio.h>
@@ -54,6 +55,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 	int sys_number = f->R.rax;
 	switch (sys_number){
 		case SYS_HALT:
+			power_off();
 			break;
 
 		case SYS_EXIT: {
