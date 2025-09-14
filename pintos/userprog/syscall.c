@@ -1,3 +1,4 @@
+#include "include/threads/init.h"
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -23,6 +24,9 @@ void syscall_handler (struct intr_frame *);
 #define MSR_STAR 0xc0000081         /* Segment selector msr */
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
 
 void
 syscall_init (void) {
@@ -41,6 +45,131 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
+	int sys_number = f->R.rax;
+	switch (sys_number){
+		case SYS_HALT: {
+			power_off();
+			break;
+		}
+
+		case SYS_EXIT: {
+			int status = (int) f->R.rdi;  // exit status
+			sys_exit(status);
+			break;
+		}
+			
+		case SYS_FORK:
+			break;
+
+		case SYS_EXEC:
+
+			break;
+
+		case SYS_WAIT:
+			break;
+
+		case SYS_CREATE:
+			break;
+
+		case SYS_REMOVE:
+			break;
+
+		case SYS_OPEN:
+			break;
+
+		case SYS_FILESIZE:
+			break;
+
+		case SYS_READ:
+			break;
+
+		case SYS_WRITE: {
+			int fd = (int) f->R.rdi;
+			const void *buf = (const void *) f->R.rsi;
+			size_t size = (size_t) f->R.rdx;
+			f->R.rax = sys_write(fd, buf, size);
+			break;
+		}
+
+		case SYS_SEEK:
+			break;
+
+		case SYS_TELL:
+			break;
+
+		case SYS_CLOSE:
+			break;
+
+		default:
+			break;
+	}
+
 	printf ("system call!\n");
 	thread_exit ();
+}
+
+
+// Note : arg buf는 사용자 프로세스 주소 공간에 있는 포인터 
+int sys_write(int fd, const void *buf, size_t size){ 
+	if (size == 0) return 0;
+	if (buf == NULL || fd <= STDIN_FILENO){
+		sys_exit(-1);
+	} 	
+	
+	validate_user_buffer(buf, size);
+
+	// 1 = STDOUT
+	if (fd == STDOUT_FILENO) {
+		putbuf(buf, size);
+		return (int) size;
+	}
+
+	/**
+	 * todo : 나중에 심화로 파일 쓰기 하기 
+	 * - fd로 파일 객체 찾기
+	 * - 락 걸고 파일 쓰기 
+	 */ 
+}
+
+/**
+ * 검증할 것 
+ * - buf가 실제로 매핑된 메모리가 있는지
+ * - buf가 user영역에 속하는지
+ */ 
+void validate_user_buffer(const void *buf, size_t size) {
+	// TODO: Your implementation goes here.
+	const uint8_t *start = (uint8_t *)buf;
+	const uint8_t *end = (uint8_t *)buf + size - 1;
+	
+	// 유효한 주소 인지 
+	if (!is_user_vaddr((void *)start) || !is_user_vaddr((void *)end)) {
+		sys_exit(-1);
+	}
+
+	// pg_round_down(va) : 이 va주소가 속한 페이지의 시작 주소를 구하는 메크로 
+	// 페이지가 걸칠 수 있기 때문에 페이지 단위로 loop돌면서 pml4_get_page()로 매핑 여부 확인 
+	for (uint8_t *p = pg_round_down(start); p < pg_round_down(end); p += PGSIZE){
+		if (pml4_get_page(thread_current()->pml4, p) == NULL) {
+			sys_exit(-1);
+		}
+	}
+}
+
+void validate_fd(int fd) {
+	// TODO: Your implementation goes here.
+	const struct thread *cur = thread_current();	
+	if (fd < 0) {
+		sys_exit(-1);
+	}
+	// if (cur->fd_table[fd] == NULL) {
+	// 	sys_exit(-1);
+	// }
+}
+
+void sys_exit(int staus){
+	// 임시 
+	struct thread *cur = thread_current();
+	cur->status = staus;
+
+	thread_exit();
 }

@@ -308,8 +308,7 @@ process_exit (void) {
 }
 
 /* Free the current process's resources. */
-static void
-process_cleanup (void) {
+static void process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
