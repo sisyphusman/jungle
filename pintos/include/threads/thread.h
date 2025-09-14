@@ -115,6 +115,9 @@ struct thread {
 	struct semaphore exit_sema;
 	int exit_status; // 0 = 정상 종료 1 = 의도된 비정상 종료 -1 = 커널에 의한 비정상 종료 
 	uint64_t *pml4;                     /* Page map level 4 */
+	struct list fd_table;
+	int next_fd;
+
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
@@ -125,6 +128,16 @@ struct thread {
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 };
+
+#ifdef USERPROG
+struct fd_table_entry
+{
+	int fd;
+	struct file *file;
+	struct list_elem elem;
+};
+#endif
+
 
 
 /* If false (default), use round-robin scheduler.

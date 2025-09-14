@@ -460,7 +460,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	list_init(&t->donators); // donators 추가 
 	list_init(&t->held_locks); 
 	list_init(&t->children);
-	
+	list_init(&t->fd_table);
 
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
@@ -468,6 +468,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->priority = priority;
 	t->eff_priority = priority;
 	t->exit_status = 0;
+	t->next_fd = 2;
 	
 	sema_init(&t->wait_sema, 0);
 	sema_init(&t->exit_sema, 0);

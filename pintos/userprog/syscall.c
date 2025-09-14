@@ -3,6 +3,7 @@
 #include "lib/kernel/console.h"
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -18,7 +19,8 @@ static int sys_write(int fd, const void *buf, size_t size);
 static void validate_user_buffer(const void *buf, size_t size);
 static void validate_fd(int fd);
 static bool file_create (const char *file, unsigned initial_size);
-
+static struct lock filesys_lock;
+static int open_file(const char *file);
 
 /* System call.
  *
@@ -47,6 +49,8 @@ syscall_init (void) {
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+
+	lock_init(&filesys_lock);
 }
 
 /* The main system call interface */
@@ -88,8 +92,16 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_REMOVE:
 			break;
 
-		case SYS_OPEN:
+		case SYS_OPEN:{
+			const char *file = (const char *) f->R.rdi;
+			int result = open_file(file);
+			if (result == -1){
+				sys_exit(-1);
+			}
+			f->R.rax = result;
 			break;
+		}
+
 
 		case SYS_FILESIZE:
 			break;
@@ -101,7 +113,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			int fd = (int) f->R.rdi;
 			const void *buf = (const void *) f->R.rsi;
 			size_t size = (int) f->R.rdx;
-			f->R.rax = sys_write(fd, buf, size);
+			int result = sys_write(fd, buf, size);
 			break;
 		}
 
@@ -125,6 +137,37 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 	//thread_exit ();
 }
 
+
+/**
+ * Return
+ * - 성공 시 : FD
+ * - 실패 시 : -1
+ * 각각의 프로세스는 독립적인 파일 식별자들을 갖는다.
+ * 파일 식별자는 자식 프로세스들에게 상속(전달)됩니다. 
+ * 하나의 프로세스에 의해서든 다른 여러개의 프로세스에 의해서든, 하나의 파일이 두 번 이상 열리면 그때마다 open 시스템콜은 새로운 식별자를 반환합니다. 
+ * FD는 포인터 주소만 -> 이중 포인터
+ */
+int open_file(const char *file){
+	
+	validate_addr(file);
+
+	// 락 걸기 
+	lock_acquire(&filesys_lock);
+	struct file *opened_file = filesys_open(file);
+	lock_release(&filesys_lock);
+	if (opened_file == NULL){
+		return -1;
+	}
+
+	struct thread *cur = thread_current();
+	struct fd_table_entry *entry = malloc(sizeof(struct fd_table_entry));
+	entry->fd = cur->next_fd;
+	cur->next_fd++;
+	entry->file = opened_file;
+	list_push_back(&cur->fd_table, &entry->elem);
+
+	return entry->fd;
+}
 
 // 파일이 성공적으로 생성 시 true 반환 
 // 생성만하고 open하지 않는다.

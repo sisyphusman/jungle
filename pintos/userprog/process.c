@@ -38,9 +38,13 @@ static struct thread *find_child_thread_by_tid(tid_t child_tid);
 
 
 /* General process initializer for initd and other process. */
-static void
-process_init (void) {
+// init_thread는 커널쓰레드까지 포함
+// process_init은 user-only 자원을 가진 process를 init
+static void process_init (void) {
 	struct thread *current = thread_current ();
+	// list_init(&current->children);
+	// list_init(&current->fd_table);
+	
 }
 
 /* Starts the first userland program, called "initd", loaded from FILE_NAME.
