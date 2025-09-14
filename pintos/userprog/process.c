@@ -1,3 +1,4 @@
+#include "include/lib/string.h"
 #include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
@@ -22,10 +23,16 @@
 #include "vm/vm.h"
 #endif
 
+#define MAX_ARGV 64
+
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
+static int tokenize_command_line(char *command_line, char **argv);
+static void *push(struct intr_frame *interrupt_frame, const void *src, size_t n);
+static void align_stack(struct intr_frame *interrupt_frame);
+
 
 /* General process initializer for initd and other process. */
 static void
@@ -160,35 +167,116 @@ error:
 
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
-int
-process_exec (void *f_name) {
-	char *file_name = f_name;
+
+/**
+ * <페이지 버퍼 해제>
+ * thread_create에서 부모가 넘겨준 f_name은 page할당을 받아서 힙에 있음 
+ * 자식 thread_create가 실패하면 부모가 해제한다.
+ * But 자식 thread_create가 성공하면 소유권을 갖고 있는 자식이 페이지 버퍼를 해제해야 함 
+ */ 
+ /**
+ * arg(f_name) = 전체 커멘드 라인의 시작 주소 
+ * ./filename -p 8080:8181 good 
+ */ 
+int process_exec (void *f_name) {
+	char *command_line = f_name;
 	bool success;
 
-	/* We cannot use the intr_frame in the thread structure.
-	 * This is because when current thread rescheduled,
-	 * it stores the execution information to the member. */
 	struct intr_frame _if;
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
-	/* We first kill the current context */
+	// 이전 컨텍스트 정리: 페이지 테이블/파일 핸들 등 정리 */
 	process_cleanup ();
 
-	/* And then load the binary */
-	success = load (file_name, &_if);
-
-	/* If load failed, quit. */
-	palloc_free_page (file_name);
-	if (!success)
+	char *argv[MAX_ARGV];  // main에 넘길 argv는 이중 포인터
+	int argc = tokenize_command_line(command_line, argv);
+	if (argc == 0){
 		return -1;
+	}
+	
+	success = load (argv[0], &_if);
+	build_stack(&_if, argv, argc);
 
+	palloc_free_page (f_name);
+	if (!success){
+		return -1;
+	}
 	/* Start switched process. */
+	
 	do_iret (&_if);
 	NOT_REACHED ();
 }
 
+// return arg count
+int tokenize_command_line(char *command_line, char **argv) {
+	char *save_ptr = NULL;
+	int argc = 0;
+	for(char *token = strtok_r(command_line, " ", &save_ptr); 
+			(token != NULL || argc < MAX_ARGV); 
+			token = strtok_r(NULL, " ", &save_ptr))
+	{			
+				argv[argc++] = token;
+	}
+
+	if (argc < MAX_ARGV) {
+		argv[argc] = NULL;
+	}
+	return argc;
+}
+
+void *push (struct intr_frame *interrupt_frame, const void *src, size_t n) {
+	interrupt_frame->rsp -= n;
+	memcpy((void *)interrupt_frame->rsp, src, n);
+	return (void *)interrupt_frame->rsp;
+}
+
+
+
+/** todo 
+ * 1. argv에 저장된 문자열을 stack에 push (rsp부터)
+ * 2. 정렬하기
+ * 3. NULL 센티널 넣기 
+ * 4. argv 포인터들을 역순으로 push 
+ * 5. 레지스터 세팅
+ * 6. fake return 주소 push
+ */ 
+void build_stack(struct intr_frame *interrupt_frame, char *argv[], int argc) {
+	 // 1. argv에 저장된 문자열을 stack에 push
+	 uintptr_t user_arg_ptrs[MAX_ARGV];
+	 for (int i = argc - 1; i >= 0; i--){
+		void *str_addr = push(interrupt_frame, argv[i], (strlen(argv[i]) + 1));
+		user_arg_ptrs[i] = str_addr;
+	 }
+
+	 // 2. 정렬 
+	 align_stack(interrupt_frame);
+	 
+	 // 3. NULL 센티널 
+	 uintptr_t null_ptr = 0;
+	 push(interrupt_frame, &null_ptr, sizeof(null_ptr));
+
+	 // 2. argv 포인터들(이중 포인터) 역순으로 push
+	 for (int i = argc - 1; i >= 0; i--){
+		push(interrupt_frame, &user_arg_ptrs[i], sizeof(user_arg_ptrs[i]));
+	 }
+
+	 // 5. 레지스터 세팅 
+	 interrupt_frame->R.rdi = (uint64_t) argc;
+	 interrupt_frame->R.rsi = (uint64_t) interrupt_frame->rsp;
+
+	 // 6. fake return 주소 push
+	 uintptr_t fake_return = 0;
+	 push(interrupt_frame, &fake_return, sizeof(fake_return));
+}
+
+void align_stack(struct intr_frame *interrupt_frame) {
+	while ((interrupt_frame->rsp % 8) != 0){
+		uint8_t zero = 0;
+		push(interrupt_frame, &zero, 1);
+	}
+}
 
 /* Waits for thread TID to die and returns its exit status.  If
  * it was terminated by the kernel (i.e. killed due to an
@@ -414,6 +502,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
+	// build_stack()
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
