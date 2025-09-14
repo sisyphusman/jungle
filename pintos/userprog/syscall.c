@@ -24,6 +24,8 @@ static bool file_create (const char *file, unsigned initial_size);
 static int open_file(const char *file);
 static int read(int fd, void *buffer, unsigned size);
 static struct file *find_file_by_fd(int fd);
+static uint64_t get_file_length(int fd);
+
 
 static struct lock filesys_lock;
 /* System call.
@@ -105,7 +107,8 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 
 
 		case SYS_FILESIZE:{
-
+			int fd = (int) f->R.rdi;
+			f->R.rax = get_file_length(fd);
 			break;
 		}
 			
@@ -146,6 +149,18 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 
 	//printf ("system call!\n");
 	//thread_exit ();
+}
+
+uint64_t get_file_length(int fd) {
+	struct file *file_ptr = find_file_by_fd(fd);
+	if (file_ptr == NULL){
+		return -1;
+	}
+	
+	lock_acquire(&filesys_lock);
+	off_t size = file_length(find_file_by_fd(fd));
+	lock_release(&filesys_lock);
+	return (uint64_t)size;
 }
 
 
