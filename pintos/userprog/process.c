@@ -1,3 +1,4 @@
+#include "synch.h"
 #include "include/lib/string.h"
 #include "userprog/process.h"
 #include <debug.h>
@@ -204,7 +205,6 @@ int process_exec (void *f_name) {
 		return -1;
 	}
 	/* Start switched process. */
-	
 	do_iret (&_if);
 	NOT_REACHED ();
 }
@@ -214,7 +214,7 @@ int tokenize_command_line(char *command_line, char **argv) {
 	char *save_ptr = NULL;
 	int argc = 0;
 	for(char *token = strtok_r(command_line, " ", &save_ptr); 
-			(token != NULL || argc < MAX_ARGV); 
+			(token != NULL && argc < MAX_ARGV); 
 			token = strtok_r(NULL, " ", &save_ptr))
 	{			
 				argv[argc++] = token;
@@ -287,24 +287,74 @@ void align_stack(struct intr_frame *interrupt_frame) {
  *
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
-int
-process_wait (tid_t child_tid UNUSED) {
+int process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
-	 * XXX:       implementing the process_wait. */
-	return -1;
+	 * XXX:       implementing the process_wait. */	
+	/**
+	 * 1. 인자 tid에 해당하는 child thread 찾기 
+	 * 2. 자식 스레드가 종료될 때까지 대기 - sema_down
+	 * 3. 자식 스레드를 자식 리스트에서 제거 Cuz 자식 스레드 종료 예정
+	 * 4. 자식 스레드 깨우기 - 자식도 정리하라고 
+	 * 5. 자식 스레드의 종료 상태를 반환 
+	 */
+	struct thread *child = get_child_thread(child_tid);
+	if (child == NULL){
+		return -1;
+	}
+
+	// 2. 자식 종료까지 대기 
+	sema_down(&child->wait_sema);
+
+	int status = child->exit_status;
+	list_remove(&child->child_elem);
+	
+	// 자식 스레드 깨우기 
+	sema_up(&child->exit_sema);
+	return status;
+}
+
+struct thread *get_child_thread(tid_t child_tid) {
+	struct list *child_list = &thread_current()->children;
+	for (struct list_elem *e = list_begin(child_list);
+			e != list_end(child_list); e = list_next(e)) {
+		
+		struct thread *child_thread = list_entry(e, struct thread, child_elem);
+		if (child_thread->tid == child_tid){
+			return child_thread;
+		} 
+	}
+	return NULL;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
-void
-process_exit (void) {
-	struct thread *curr = thread_current ();
-	/* TODO: Your code goes here.
-	 * TODO: Implement process termination message (see
-	 * TODO: project2/process_termination.html).
-	 * TODO: We recommend you to implement process resource cleanup here. */
+void process_exit (void) {
 
+	struct thread *cur = thread_current();
+
+	// 고아처리 
+	for (struct list_elem *e = list_begin(&cur->children);
+			e != list_end(&cur->children); e = list_next(e)) {
+		struct thread *child = list_entry(e, struct thread, child_elem);
+		child->parent = NULL; 
+		list_remove(&child->child_elem);
+	}
+
+	/** 동기화를 여기다 처리하지 말기 : 
+	 * 동기화는 종료 이벤트가 확정되는 지점에서 하는 것이 좋다.
+	 * `process_exit`은  `thread_exit()`에 의해서 불리고 이것도 `exit`관련 핸들러에서 처리하는 것이 좋다.
+	 * 이렇게 하면 아래와 같은 순서가 됨 
+	 * 종료 코드 결정 ➡ 부모 알림 ➡ 부모 수습 ➡ 자식 자원 정리 
+	 * 보통 종료 상태는 예외 핸들러가 관리 
+	 */
+	// struct thread *cur = thread_current ();
+	// struct thread *parent = cur->parent;
+	// if (parent != NULL) {
+	// 	sema_up(&cur->wait_sema);  // 꺠우고 
+	// 	sema_down(&cur->exit_sema); // 자원정리하기 전에 부모가 뭐좀 하라고 놨두기
+	// }
 	process_cleanup ();
+	// thread_exit();
 }
 
 /* Free the current process's resources. */

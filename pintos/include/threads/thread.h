@@ -103,10 +103,16 @@ struct thread {
 	struct list_elem sleep_elem;        /* sleep List element. */
 	struct list_elem donate_elem;
 
-
-
+	
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
+	//struct sempaphore_elem *wait_elem;
+	struct thread *parent;
+	struct list children;
+	struct list_elem child_elem;
+	struct semaphore wait_sema;
+	struct semaphore exit_sema;
+	int exit_status; // 0 = 정상 종료 1 = 의도된 비정상 종료 -1 = 커널에 의한 비정상 종료 
 	uint64_t *pml4;                     /* Page map level 4 */
 #endif
 #ifdef VM
