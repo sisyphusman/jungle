@@ -158,20 +158,21 @@ int read (int fd, void *buffer, unsigned size) {
 		return size;
 	}
 
-	if (fd == 1 || size < 0) {
+	if (fd == STDOUT_FILENO) {
 		return -1;
 	}
 	
 	validate_addr(buffer);
-
-	lock_acquire(&filesys_lock);
 	struct file *to_read_file = find_file_by_fd(fd);
-	lock_release(&filesys_lock);
+	
 	if (to_read_file == NULL) {
 		return -1;
 	}
-  
-	return file_read(to_read_file, buffer, (off_t) size);
+
+	lock_acquire(&filesys_lock);
+	int n = file_read(to_read_file, buffer, (off_t) size);
+	lock_release(&filesys_lock);
+	return n;
 }
 
 struct file *find_file_by_fd(int fd){
