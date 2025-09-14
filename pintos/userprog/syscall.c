@@ -84,6 +84,7 @@ int sys_write(int fd, const void *buf, size_t size){
 	 * todo : 나중에 심화로 파일 쓰기 하기 
 	 * - fd로 파일 객체 찾기
 	 * - 락 걸고 파일 쓰기 
+	 * 
 	 */ 
 }
 
