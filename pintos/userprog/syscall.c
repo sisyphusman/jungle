@@ -93,9 +93,13 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		}
 			
 
-		case SYS_EXEC:
-
+		case SYS_EXEC:{
+			// int wait (pid_t pid) 
+			sys_exec((pid_t) f->R.rdi);
 			break;
+		}
+
+			
 
 		case SYS_WAIT:{
 			// int wait (pid_t pid) 
@@ -171,10 +175,18 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			sys_exit(-1);
 		}
 	}
-
-	//printf ("system call!\n");
-	//thread_exit ();
 }
+
+
+void sys_exec(pid_t child_tid){
+	int result = 0;
+	result = process_exec(child_tid);
+	// process_wait(child_tid);
+	if (result != 0){
+		sys_exit(-1);
+	}
+}
+
 
 pid_t sys_wait(pid_t child_tid){
 	return process_wait(child_tid);

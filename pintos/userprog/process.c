@@ -42,16 +42,6 @@ static struct thread *find_child_thread_by_tid(tid_t child_tid);
 // process_init은 user-only 자원을 가진 process를 init
 static void process_init (void) {
 	struct thread *cur = thread_current ();
-	// 자식 리스트/FD 테이블
-	// list_init(&cur->children);
-	// list_init(&cur->fd_table);
-
-	// // wait/exit 동기화 세마포어
-	// sema_init(&cur->wait_sema, 0);
-	// sema_init(&cur->exit_sema, 0);
-
-	// // 기타 플래그
-	// cur->is_waited = false;
 }
 
 /* Starts the first userland program, called "initd", loaded from FILE_NAME.
@@ -92,36 +82,26 @@ initd (void *f_name) {
 	NOT_REACHED ();
 }
 
-/** 부모가 할 일 
- * 1. 값을 복사할 구조체 전용 메모리 할당 malloc - 
- * 2. 1번 구조체에 값 채워넣기(복사할 내용만)
- * 3. sema init 0으로 
- * 4. thread_create () - 2번에서 채운 내용 args로 넘기기 
- * 5. 자식 신호 대기 
- * 6. 깬 뒤 자식 tid 값 복사 
- * 7. 자식 메모리 해제 
- */
-
-/** 자식이 할 일 
- * 1. 부모 arg로 받기?
- * 2. process_init?
- * 3. 부모의 children 채워넣기
- * 4. 가상 주소 공간 복사 (이건 아직 vm아니니까 pass)
- * 5. FD 테이블 복사 - reopen, seek 사용?
- * 6. intre_frame 복사
- * 7. rax = 0으로 세팅팅
- */
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
 	struct thread *parent = thread_current ();
+
+	// 1. 메모리 할당 
 	struct fork_args *args = palloc_get_page (0);
+
+	// 2. 값 채워 넣기 
 	args->parent = parent;
 	args->parent_intr_f = *if_;
 
+	// 3. thead_create() 호출 (전달할 데이터 전달하기)
 	tid_t tid = thread_create (name, PRI_DEFAULT, __do_fork, (void *) args);
+
+	// 4. 자식 신호 대기
 	sema_down(&parent->fork_sema);
+
+	// 5. 깬 뒤 메모리 정리 
 	palloc_free_page (args);
 	if (tid == TID_ERROR){
 		return TID_ERROR;
@@ -193,17 +173,22 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 }
 #endif
 
-/* A thread function that copies parent's execution context.
- * Hint) parent->tf does not hold the userland context of the process.
- *       That is, you are required to pass second argument of process_fork to
- *       this function. */
-static void
-__do_fork (void *aux) {
+/**
+ * 1. 부모가 넘겨준 값 받기 
+ * 2. 부모의 CPU 레지스터 복사
+ * 3. 자식의 페이지 테이블 생성 및 활성화 
+ * 4. 부모의 가상 주소 공간 복사
+ * 5. 부모의 fd 테이블 복사
+ * 6. 부모 깨우기
+ * 7. 성공 처리 
+ */
+ static void __do_fork (void *aux) {
 	struct intr_frame if_;
+
+	// 1. 부모가 넘겨준 값 받기 
 	struct fork_args *fork_args = (struct fork_args *) aux;
 	struct thread *parent = fork_args->parent;
 	struct thread *current = thread_current ();
-	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	struct intr_frame parent_if = fork_args->parent_intr_f;
 
 	current->parent = parent;
@@ -212,11 +197,11 @@ __do_fork (void *aux) {
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
+	// 2. 부모의 CPU 레지스터(유저 컨텍스트) 복사 
 	memcpy (&if_, &parent_if, sizeof (struct intr_frame));
 	current->tf = if_;
 	
-	
-	/* 2. Duplicate PT */
+	// 3. 자식의 페이지 테이블 생성 및 활성화 
 	current->pml4 = pml4_create();
 	if (current->pml4 == NULL)
 		goto error;
@@ -227,21 +212,18 @@ __do_fork (void *aux) {
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
 		goto error;
 #else
+	// 4. 부모의 가상 주소 공간 복사
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
 
-	/* TODO: Your code goes here.
-	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
-	 * TODO:       in include/filesys/file.h. Note that parent should not return
-	 * TODO:       from the fork() until this function successfully duplicates
-	 * TODO:       the resources of parent.*/
+	// 5. 부모의 fd 테이블 복사
 	if (!list_empty(&parent->fd_table)){
 
 		for (struct list_elem *e = list_front(&parent->fd_table);
-		e != list_end(&parent->fd_table); 
-		e = list_next(e)) {
-		
+			e != list_end(&parent->fd_table); 
+			e = list_next(e)) {
+			
 			struct fd_table_entry *parent_entry = list_entry(e, struct fd_table_entry, elem);
 			if (parent_entry == NULL || parent_entry ->fd == 0 || parent_entry->fd == 1){
 				continue;
@@ -259,11 +241,10 @@ __do_fork (void *aux) {
 		}
 	}
 
-
 	process_init ();
+	// 6. 부모 깨우기 
 	sema_up(&parent->fork_sema);
-	// sema_down(&current->wait_sema);
-	/* Finally, switch to the newly created process. */
+	// 7. 성공 시 rax 0세팅 + do_iret
 	if (succ) {
 		current->tf.R.rax = 0;
 		do_iret (&current->tf);
