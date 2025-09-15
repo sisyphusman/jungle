@@ -29,7 +29,7 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-#define FDT_SIZE 128
+#define FDT_SIZE 8
 
 /* A kernel thread or user process.
  *
@@ -98,7 +98,7 @@ struct thread {
 	struct list donators;
 	struct lock *waiting_lock;
 	struct list held_locks;
-	struct file *fdt[FDT_SIZE];
+
 	
 	int64_t wake_up_time;               /* Time to wake up. */
 
@@ -124,11 +124,12 @@ struct thread {
 
 	struct thread *parent;
 
-
-
  #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
+	struct file *fdt[FDT_SIZE];
+
+
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
