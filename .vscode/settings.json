@@ -15,6 +15,7 @@
     "init.h": "c",
     "file.h": "c",
     "off_t.h": "c",
-    "atomic": "c"
+    "atomic": "c",
+    "cstdlib": "c"
   }
 }

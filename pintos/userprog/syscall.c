@@ -66,10 +66,11 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 	// 왜 RAX인지??
 	int sys_number = f->R.rax;
 	switch (sys_number){
-		case SYS_HALT:
+		case SYS_HALT:{
 			power_off();
 			break;
-
+		}
+			
 		case SYS_EXIT: {
 			int status = (int) f->R.rdi;  // exit status
 			// printf("SYS_EXIT 호출로 받은 exit status : %d\n", status);
@@ -121,13 +122,20 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			f->R.rax = result;
 			break;
 		}
-			
+
+		/**
+		 * Return
+		 * - 실제 적힌 수 
+		 * - 0 : 바이트 적을 수 없으면
+		 * -
+		 */
 
 		case SYS_WRITE:{
 			int fd = (int) f->R.rdi;
 			const void *buf = (const void *) f->R.rsi;
 			size_t size = (int) f->R.rdx;
 			int result = sys_write(fd, buf, size);
+			f->R.rax = result;
 			break;
 		}
 
@@ -158,7 +166,7 @@ uint64_t get_file_length(int fd) {
 	}
 	
 	lock_acquire(&filesys_lock);
-	off_t size = file_length(find_file_by_fd(fd));
+	off_t size = file_length(file_ptr);
 	lock_release(&filesys_lock);
 	return (uint64_t)size;
 }
@@ -264,7 +272,7 @@ void sys_exit(int status){
 int sys_write(int fd, const void *buf, size_t size){ 
 	if (size == 0) return 0;
 	if (buf == NULL || fd <= STDIN_FILENO){
-		sys_exit(-1);
+		-1;
 	} 	
 	
 	validate_user_buffer(buf, size);
@@ -275,6 +283,15 @@ int sys_write(int fd, const void *buf, size_t size){
 		return (int) size;
 	}
 
+	struct file *to_write_file = find_file_by_fd(fd);
+	if (to_write_file == NULL){
+		sys_exit(-1);
+	}
+
+	lock_acquire(&filesys_lock);
+	int n = file_write(to_write_file, buf, size);
+	lock_release(&filesys_lock);
+	return n;
 	/**
 	 * todo : 나중에 심화로 파일 쓰기 하기 
 	 * - fd로 파일 객체 찾기
@@ -300,7 +317,7 @@ void validate_user_buffer(const void *buf, size_t size) {
 
 	// pg_round_down(va) : 이 va주소가 속한 페이지의 시작 주소를 구하는 메크로 
 	// 페이지가 걸칠 수 있기 때문에 페이지 단위로 loop돌면서 pml4_get_page()로 매핑 여부 확인 
-	for (uint8_t *p = pg_round_down(start); p < pg_round_down(end); p += PGSIZE){
+	for (uint8_t *p = pg_round_down((void *)start); p <= pg_round_down((void *)end); p += PGSIZE){
 		if (pml4_get_page(thread_current()->pml4, p) == NULL) {
 			sys_exit(-1);
 		}
