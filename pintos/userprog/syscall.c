@@ -1,3 +1,4 @@
+#include "lib/stdarg.h"
 #include "devices/input.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -25,8 +26,9 @@ static int open_file(const char *file);
 static int read(int fd, void *buffer, unsigned size);
 static struct file *find_file_by_fd(int fd);
 static uint64_t get_file_length(int fd);
+static pid_t fork(const char *thread_name);
 
-
+typedef int pid_t;
 static struct lock filesys_lock;
 /* System call.
  *
@@ -64,6 +66,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
 
 	// 왜 RAX인지??
+	struct thread *cur = thread_current();
 	int sys_number = f->R.rax;
 	switch (sys_number){
 		case SYS_HALT:{
@@ -78,8 +81,13 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 		}
 			
-		case SYS_FORK:
+		case SYS_FORK:{
+			const char *thread_name = (char *) f->R.rdi;
+			cur->tf = *f;  // 걍 인자로 넘길까 고민중 
+			f->R.rax = fork(thread_name);
 			break;
+		}
+			
 
 		case SYS_EXEC:
 
@@ -158,6 +166,66 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 	//printf ("system call!\n");
 	//thread_exit ();
 }
+
+
+/** 부모가 할 일 
+ * 1. 값을 복사할 구조체 전용 메모리 할당 malloc - 
+ * 2. 1번 구조체에 값 채워넣기(복사할 내용만)
+ * 3. sema init 0으로 
+ * 4. thread_create () - 2번에서 채운 내용 args로 넘기기 
+ * 5. 자식 신호 대기 
+ * 6. 깬 뒤 자식 tid 값 복사 
+ * 7. 자식 메모리 해제 
+ */
+
+/** 자식이 할 일 
+ * 1. 부모 arg로 받기?
+ * 2. process_init?
+ * 3. 부모의 children 채워넣기
+ * 4. 주소 공간 복사 - va_copy
+ * 5. FD 테이블 복사 - reopen, seek 사용?
+ * 6. intre_frame 복사
+ * 7. rax = 0으로 세팅팅
+ */
+pid_t fork(const char *thread_name) {
+	/** 부모가 할 일 
+	 * 1. 메모리 할당 malloc
+	 * 2. 메모리에 값 채워넣기
+	 * 3. thread_create ()
+	 * 4. 자식 신호 대기 
+	 * 5. 깬 뒤 자식 tid 값 복사 
+	 * 6. 1번에서 할당한 메모리 해제 Cuz 복사 끝 
+	 */
+	struct thread *cur = thread_current();
+	// 1. 보따리 전용 메모리 할당 
+	struct fork_args *f_args = malloc(sizeof(struct fork_args));
+
+	// 2. 메모리에 값 채워넣기
+	f_args->parent = cur;
+	f_args->parent_intr_f = &cur->tf; 
+
+	// 3. thread_create
+	tid_t child_tid = thread_create(thread_name, PRI_DEFAULT, do_fork, f_args);
+	
+	// 4. 대기 
+	sema_down(&cur->fork_sema);
+	if (child_tid < 0){
+		return -1;
+	}
+
+	// 5, 6 
+	pid_t result = child_tid;
+	free(f_args);
+	return result;
+}
+
+void do_fork(struct fork_args *f_args){
+		// va_copy??? 사용해야하나 
+		
+
+}
+
+
 
 uint64_t get_file_length(int fd) {
 	struct file *file_ptr = find_file_by_fd(fd);
@@ -292,12 +360,6 @@ int sys_write(int fd, const void *buf, size_t size){
 	int n = file_write(to_write_file, buf, size);
 	lock_release(&filesys_lock);
 	return n;
-	/**
-	 * todo : 나중에 심화로 파일 쓰기 하기 
-	 * - fd로 파일 객체 찾기
-	 * - 락 걸고 파일 쓰기 
-	 * 
-	 */ 
 }
 
 /**

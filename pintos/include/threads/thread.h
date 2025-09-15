@@ -113,6 +113,7 @@ struct thread {
 	struct list_elem child_elem;
 	struct semaphore wait_sema;
 	struct semaphore exit_sema;
+	struct semaphore fork_sema;
 	int exit_status; // 0 = 정상 종료 1 = 의도된 비정상 종료 -1 = 커널에 의한 비정상 종료 
 	uint64_t *pml4;                     /* Page map level 4 */
 	struct list fd_table;
@@ -136,8 +137,13 @@ struct fd_table_entry
 	struct file *file;
 	struct list_elem elem;
 };
-#endif
 
+struct fork_args
+{
+	struct thread *parent;
+	struct intr_frame *parent_intr_f;
+};
+#endif
 
 
 /* If false (default), use round-robin scheduler.
