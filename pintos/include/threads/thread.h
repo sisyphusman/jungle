@@ -124,7 +124,6 @@ struct thread {
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
 #endif
-
 	/* Owned by thread.c. */
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
@@ -138,11 +137,11 @@ struct fd_table_entry
 	struct list_elem elem;
 };
 
-struct fork_args
-{
-	struct thread *parent;
-	struct intr_frame *parent_intr_f;
-};
+// struct fork_args
+// {
+// 	struct thread *parent;
+// 	struct intr_frame *parent_intr_f;
+// };
 #endif
 
 

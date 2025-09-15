@@ -1,3 +1,4 @@
+#include "string.h"
 #include "lib/stdarg.h"
 #include "devices/input.h"
 #include "filesys/file.h"
@@ -83,8 +84,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			
 		case SYS_FORK:{
 			const char *thread_name = (char *) f->R.rdi;
-			cur->tf = *f;  // 걍 인자로 넘길까 고민중 
-			f->R.rax = fork(thread_name);
+			f->R.rax = fork(thread_name, f);
 			break;
 		}
 			
@@ -177,35 +177,16 @@ void syscall_handler (struct intr_frame *f UNUSED) {
  * 6. 깬 뒤 자식 tid 값 복사 
  * 7. 자식 메모리 해제 
  */
-
-/** 자식이 할 일 
- * 1. 부모 arg로 받기?
- * 2. process_init?
- * 3. 부모의 children 채워넣기
- * 4. 주소 공간 복사 - va_copy
- * 5. FD 테이블 복사 - reopen, seek 사용?
- * 6. intre_frame 복사
- * 7. rax = 0으로 세팅팅
- */
-pid_t fork(const char *thread_name) {
-	/** 부모가 할 일 
-	 * 1. 메모리 할당 malloc
-	 * 2. 메모리에 값 채워넣기
-	 * 3. thread_create ()
-	 * 4. 자식 신호 대기 
-	 * 5. 깬 뒤 자식 tid 값 복사 
-	 * 6. 1번에서 할당한 메모리 해제 Cuz 복사 끝 
-	 */
+pid_t fork(const char *thread_name, struct intr_frame *frame){ 
 	struct thread *cur = thread_current();
 	// 1. 보따리 전용 메모리 할당 
 	struct fork_args *f_args = malloc(sizeof(struct fork_args));
 
 	// 2. 메모리에 값 채워넣기
-	f_args->parent = cur;
-	f_args->parent_intr_f = &cur->tf; 
+	memcpy(&cur->tf, frame, sizeof(struct intr_frame));
 
 	// 3. thread_create
-	tid_t child_tid = thread_create(thread_name, PRI_DEFAULT, do_fork, f_args);
+	tid_t child_tid = thread_create(thread_name, PRI_DEFAULT, do_fork, cur);
 	
 	// 4. 대기 
 	sema_down(&cur->fork_sema);
@@ -219,10 +200,24 @@ pid_t fork(const char *thread_name) {
 	return result;
 }
 
-void do_fork(struct fork_args *f_args){
+/** 자식이 할 일 
+ * 1. 부모 arg로 받기?
+ * 2. process_init?
+ * 3. 부모의 children 채워넣기
+ * 4. 가상 주소 공간 복사 (이건 아직 vm아니니까 pass)
+ * 5. FD 테이블 복사 - reopen, seek 사용?
+ * 6. intre_frame 복사
+ * 7. rax = 0으로 세팅팅
+ */
+void do_fork(void *p){
 		// va_copy??? 사용해야하나 
+		struct thread *parent = (struct thread *) p;
+		struct thread *child = thread_current();
+		memcpy((void *)&child->tf, (const void *)&parent->tf, sizeof(struct intr_frame));
 		
 
+		// file_duplicate
+		
 }
 
 
