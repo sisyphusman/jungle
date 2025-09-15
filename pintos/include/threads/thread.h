@@ -29,6 +29,8 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+#define FDT_SIZE 128
+
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -96,6 +98,7 @@ struct thread {
 	struct list donators;
 	struct lock *waiting_lock;
 	struct list held_locks;
+	struct file *fdt[FDT_SIZE];
 	
 	int64_t wake_up_time;               /* Time to wake up. */
 
@@ -103,19 +106,21 @@ struct thread {
 	struct list_elem elem;              /* ready List element. */
 	struct list_elem sleep_elem;        /* sleep List element. */
 	struct list_elem donate_elem;
-	struct list_elem all_elem;
+	//struct list_elem all_elem;
 	struct list_elem children_elem;
 
 	// struct list children_list;
 	// struct list_elem children_elem;
 
 	int exit_status;
-	bool is_exited;
+
+
 
 	struct list children_list;
 
 
 	struct semaphore wait_sema;
+	struct semaphore exit_sema;
 
 	struct thread *parent;
 

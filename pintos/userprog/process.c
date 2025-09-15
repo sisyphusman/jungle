@@ -27,6 +27,7 @@ static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
+static struct lock filesys_lock;
 
 
 /* General process initializer for initd and other process. */
@@ -45,9 +46,11 @@ process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
 
-	char command_copy[128];
+	char command_copy[64];
 	char *program_command;
 	char *str_point;
+
+	lock_init(&filesys_lock);
 
 	
 	strlcpy(command_copy, file_name, sizeof(command_copy));
@@ -179,7 +182,6 @@ process_exec (void *f_name) {
 	bool success;
 	//printf("program_exec|| 어렵다");
 
-
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -219,28 +221,24 @@ process_exec (void *f_name) {
 int
 process_wait (tid_t child_tid) {
 	struct thread *curr = thread_current ();
-	//printf("procss_wait");
-
-	
 	struct thread *t = find_tid_in_children(child_tid);
 
 	if(t == NULL){ 
-		//printf("t는 없어요.");
+		printf("t는 없어요.");
 		return -1;}
 	else{
 	//printf("t는 있어요.");
-	sema_down(&t->wait_sema);
-	//printf("procss_wait_[2]");
-
+	sema_down(&t->wait_sema); // 커널이 BLOCK 
+	int status = t->exit_status; // RUNNING 중 정보 먹음 
+	list_remove(&t->children_elem); // 이제 유저프로그램 정보 필요 없어 
+	sema_up(&t->exit_sema); // 좀비 프로세스 깨워 
 	
-	int status = t->exit_status;
-
-	list_remove(&t->children_elem);
-	// palloc_free_page(t);
+	
 
 	//while(1);
 	 //return -1;
-	return status;}
+	return status;
+}
 
 }
 
@@ -253,13 +251,16 @@ process_exit (void) {
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	//printf("process_exit ");
-	curr->is_exited = true;
 	curr->exit_status = 0;
 
-	sema_up(&curr->wait_sema);
-
-
+	
+	sema_up(&curr->wait_sema); // 세마 up 하고 좀비 프로세스가 됨
+	sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
 	process_cleanup ();
+	
+
+
+	
 }
 
 /* Free the current process's resources. */
@@ -372,11 +373,11 @@ load (const char *file_name, struct intr_frame *if_) { //커널 모드에서 유
 	bool success = false;
 	int i;
 
-	char command_copy[128];
+	char command_copy [64];
 	char *program_command;
 	char *str_point;
 	//printf("load ");
-	
+
 	strlcpy(command_copy, file_name, sizeof(command_copy));
 	program_command = strtok_r(command_copy, " ", &str_point);
 	/* Allocate and activate page directory. */ //페이지 테이블 생성
@@ -659,6 +660,11 @@ setup_stack (struct intr_frame *if_) {
 	return success;
 }
 
+int 
+process_add_file(struct file *file_open){
+	
+}
+
 /* Adds a mapping from user virtual address UPAGE to kernel
  * virtual address KPAGE to the page table.
  * If WRITABLE is true, the user process may modify the page;
@@ -745,3 +751,16 @@ setup_stack (struct intr_frame *if_) {
 	return success;
 }
 #endif /* VM */
+
+int 
+get_fd_from_fdt(struct file *file_open){
+	struct thread *t = thread_current();
+	for(int fd =2 ; fd < FDT_SIZE ; fd++){
+		if(t->fdt[fd] == NULL){
+			t->fdt[fd] = file_open;
+			return fd;
+		}
+	}
+
+	return -1;
+}

@@ -1,15 +1,21 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "threads/loader.h"
+#include "filesys/filesys.h"
+#include "filesys/directory.h"
 #include "userprog/gdt.h"
 #include "threads/flags.h"
+#include "include/userprog/process.h"
 #include "intrinsic.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+static bool sys_create (const char *file, unsigned initial_size);
+
+static struct lock filesys_lock;
 
 /* System call.
  *
@@ -56,9 +62,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_HALT:
 		halt();
 		break;
+	case SYS_OPEN:
+		const char *file_name = (const char *)f->R.rdi;
+		f->R.rax = open(file_name);
+		break;
 	case SYS_FORK:
 		break;
 	case SYS_CREATE:
+		f->R.rax = sys_create((const char *)f->R.rdi, (unsigned)f->R.rsi);
 		break;
 	// case SYS_EXEC:
 	// const char *cmd_line = (const char *)f->R.rdi;
@@ -74,11 +85,11 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 
 int write (int fd, const void *buffer, unsigned size){
+
 	if(fd == 1){ // STDOUT
 		putbuf(buffer,size);
 		return size;
 	}
-
 	return -1;
 }
 
@@ -94,9 +105,47 @@ void halt(){
 	power_off();
 }
 
-bool create (const char *file, unsigned initial_size){
 
+static bool
+ sys_create (const char *file, unsigned initial_size){
+	// 1. NULL 포인터이거나 2. 커널 영역 주소이거나 3. 매핑되지 않은 주소이면 종료
+	if(file == NULL || !is_user_vaddr(file) ||  pml4_get_page(thread_current()->pml4, file) == NULL){
+		exit(-1);
+	}
+	if( strlen(file) == 0 || strlen(file) > NAME_MAX){ //== 0 equals to "" 빈문자열 
+		return false;
+	}
+
+	bool success = filesys_create(file,initial_size);
+
+	return success;
 }
+
+
+int open (const char *file){
+	if(file == NULL || !is_user_vaddr(file) ||  pml4_get_page(thread_current()->pml4, file) == NULL){
+		exit(-1);
+	}
+	lock_acquire(&filesys_lock);
+
+	struct file *file_open = filesys_open(file);
+	if(file_open == NULL){
+		lock_release(&filesys_lock);
+		return -1;
+
+	}
+	int fd = get_fd_from_fdt(file_open);
+
+	if(fd == -1){
+		file_close(file_open);
+	}
+	lock_release(&filesys_lock);
+
+	return fd;
+}
+
+
+
 
 // int exec (const char *cmd_line){
 // 	char *fn_copy;
