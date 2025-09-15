@@ -28,6 +28,7 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
+
 /* General process initializer for initd and other process. */
 static void
 process_init (void) {
@@ -44,6 +45,14 @@ process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
 
+	char command_copy[128];
+	char *program_command;
+	char *str_point;
+
+	
+	strlcpy(command_copy, file_name, sizeof(command_copy));
+	program_command = strtok_r(command_copy, " ", &str_point);
+
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page (0);
@@ -52,9 +61,11 @@ process_create_initd (const char *file_name) {
 	strlcpy (fn_copy, file_name, PGSIZE);
 
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create (program_command, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
+
+
 	return tid;
 }
 
@@ -166,7 +177,7 @@ int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
-	printf("program_exec|| 어렵다");
+	//printf("program_exec|| 어렵다");
 
 
 	/* We cannot use the intr_frame in the thread structure.
@@ -206,63 +217,46 @@ process_exec (void *f_name) {
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) {
+process_wait (tid_t child_tid) {
 	struct thread *curr = thread_current ();
+	//printf("procss_wait");
 
 	
-		// struct list_elem *e = list_begin(&thread_current()->children_list);
+	struct thread *t = find_tid_in_children(child_tid);
 
-		// while(e != list_end(&thread_current()->children_list)){
-		// 	struct thread *t  = list_entry(e, struct thread, children_elem);
-		// 	struct list_elem *next = list_next(e);
+	if(t == NULL){ 
+		//printf("t는 없어요.");
+		return -1;}
+	else{
+	//printf("t는 있어요.");
+	sema_down(&t->wait_sema);
+	//printf("procss_wait_[2]");
 
-		// 	if(t->tid == child_tid){
-		// 		sema_down(&t->wait_sema);
-		// 		return;
-		// 	}
-
-		// 	e = next;
-
-		// }
-		
 	
-	const char msg[] = "process_wait || 겁나 어렵다 \n";
-	putbuf(msg, sizeof(msg)-1);
-	while(1);
+	int status = t->exit_status;
+
+	list_remove(&t->children_elem);
+	// palloc_free_page(t);
+
+	//while(1);
 	 //return -1;
+	return status;}
+
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void
 process_exit (void) {
-	struct thread *curr = thread_current ();
+	struct thread *curr = thread_current();
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-
+	//printf("process_exit ");
 	curr->is_exited = true;
-	//struct thread *parent_thread = curr->parent;
-	// 부모 프로세스에서 나 빼기 
-	// if(parent_thread){
-	// 	sema_up(&parent_thread->wait_sema);
+	curr->exit_status = 0;
 
-	// 	struct list_elem *e = list_begin(&parent_thread->children_list);
-
-	// 	while(e != list_end(&parent_thread->children_list)){
-	// 		struct thread *t  = list_entry(e, struct thread, children_elem);
-	// 		struct list_elem *next = list_next(e);
-
-	// 		if(t->tid == curr->tid){
-	// 			remove(e);
-	// 			return;
-	// 		}
-
-	// 		e = next;
-
-	// 	}
-		
-	// }
+	sema_up(&curr->wait_sema);
 
 
 	process_cleanup ();
@@ -381,7 +375,7 @@ load (const char *file_name, struct intr_frame *if_) { //커널 모드에서 유
 	char command_copy[128];
 	char *program_command;
 	char *str_point;
-	printf("load  || passing해야지");
+	//printf("load ");
 	
 	strlcpy(command_copy, file_name, sizeof(command_copy));
 	program_command = strtok_r(command_copy, " ", &str_point);

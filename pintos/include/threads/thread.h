@@ -104,12 +104,16 @@ struct thread {
 	struct list_elem sleep_elem;        /* sleep List element. */
 	struct list_elem donate_elem;
 	struct list_elem all_elem;
-
-	struct list children_list;
 	struct list_elem children_elem;
+
+	// struct list children_list;
+	// struct list_elem children_elem;
 
 	int exit_status;
 	bool is_exited;
+
+	struct list children_list;
+
 
 	struct semaphore wait_sema;
 
@@ -166,5 +170,8 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
+
+struct thread * find_thread_with_tid(tid_t child_tid);
+struct thread *find_tid_in_children(tid_t child_tid);
 
 #endif /* threads/thread.h */

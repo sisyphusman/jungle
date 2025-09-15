@@ -46,14 +46,29 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	switch (syscall)
 	{
 	case SYS_WRITE:
-		printf ("write 호출!\n");
+		//printf ("write 호출!\n");
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
+	case SYS_EXIT:
+		int status = f->R.rdi;
+		exit(status);
+		break;
+	case SYS_HALT:
+		halt();
+		break;
+	case SYS_FORK:
+		break;
+	case SYS_CREATE:
+		break;
+	// case SYS_EXEC:
+	// const char *cmd_line = (const char *)f->R.rdi;
+	// 	f->R.rax = exec(cmd_line);
+	// 	break;
 	default:
 	 	printf("Unknown syscall: %d\n", (int)f->R.rax);
 		break;
 	}
-	printf ("system call!\n");
+	//printf ("system call!\n");
 	//thread_exit ();
 }
 
@@ -66,3 +81,45 @@ int write (int fd, const void *buffer, unsigned size){
 
 	return -1;
 }
+
+
+void exit (int status)
+{	
+	struct thread *cur = thread_current();
+	printf("%s: exit(%d)\n", cur->name, status);
+	thread_exit();
+}
+
+void halt(){
+	power_off();
+}
+
+bool create (const char *file, unsigned initial_size){
+
+}
+
+// int exec (const char *cmd_line){
+// 	char *fn_copy;
+// 	tid_t tid;
+
+// 	char command_copy[128];
+// 	char *program_command;
+// 	char *str_point;
+	
+// 	strlcpy(command_copy, cmd_line, sizeof(command_copy));
+// 	program_command = strtok_r(command_copy, " ", &str_point);
+
+// 	/* Make a copy of FILE_NAME.
+// 	 * Otherwise there's a race between the caller and load(). */
+// 	fn_copy = palloc_get_page (0);
+// 	if (fn_copy == NULL)
+// 		return TID_ERROR;
+// 	strlcpy (fn_copy, cmd_line, PGSIZE);
+
+// 	/* Create a new thread to execute FILE_NAME. */
+// 	if (tid == TID_ERROR)
+// 		palloc_free_page (fn_copy);
+
+
+// 	return tid;
+// }

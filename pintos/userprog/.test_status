@@ -1,0 +1,9 @@
+args-dbl-space PASS
+args-multiple PASS
+create-normal FAIL
+args-none PASS
+halt PASS
+exit PASS
+args-many PASS
+create-empty FAIL
+args-single PASS
