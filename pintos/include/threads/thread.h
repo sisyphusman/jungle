@@ -127,6 +127,7 @@ struct thread {
 #endif
 	/* Owned by thread.c. */
 	struct intr_frame tf;               /* Information for switching */
+	// 주의 : tf 는 유저 레벨의 레지스터 세트가 아니라 커널 스케쥴러가 쓰는 스위치용 컨텍스트 
 	unsigned magic;                     /* Detects stack overflow. */
 };
 
@@ -138,11 +139,11 @@ struct fd_table_entry
 	struct list_elem elem;
 };
 
-// struct fork_args
-// {
-// 	struct thread *parent;
-// 	struct intr_frame *parent_intr_f;
-// };
+struct fork_args
+{
+	struct thread *parent;
+	struct intr_frame parent_intr_f;
+};
 #endif
 
 

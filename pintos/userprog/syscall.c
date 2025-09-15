@@ -302,7 +302,7 @@ void sys_exit(int status){
 int sys_write(int fd, const void *buf, size_t size){ 
 	if (size == 0) return 0;
 	if (buf == NULL || fd <= STDIN_FILENO){
-		-1;
+		return -1;
 	} 	
 	
 	validate_user_buffer(buf, size);
