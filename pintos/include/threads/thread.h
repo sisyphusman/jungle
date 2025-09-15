@@ -118,7 +118,8 @@ struct thread {
 	uint64_t *pml4;                     /* Page map level 4 */
 	struct list fd_table;
 	int next_fd;
-
+	bool is_waited;
+	
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */

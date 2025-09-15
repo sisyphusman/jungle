@@ -471,6 +471,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->eff_priority = priority;
 	t->exit_status = 0;
 	t->next_fd = 2;
+	t->is_waited = false;
 	
 	sema_init(&t->wait_sema, 0);
 	sema_init(&t->exit_sema, 0);

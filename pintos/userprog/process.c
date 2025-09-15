@@ -85,13 +85,33 @@ initd (void *f_name) {
 	NOT_REACHED ();
 }
 
+/** 부모가 할 일 
+ * 1. 값을 복사할 구조체 전용 메모리 할당 malloc - 
+ * 2. 1번 구조체에 값 채워넣기(복사할 내용만)
+ * 3. sema init 0으로 
+ * 4. thread_create () - 2번에서 채운 내용 args로 넘기기 
+ * 5. 자식 신호 대기 
+ * 6. 깬 뒤 자식 tid 값 복사 
+ * 7. 자식 메모리 해제 
+ */
+
+/** 자식이 할 일 
+ * 1. 부모 arg로 받기?
+ * 2. process_init?
+ * 3. 부모의 children 채워넣기
+ * 4. 가상 주소 공간 복사 (이건 아직 vm아니니까 pass)
+ * 5. FD 테이블 복사 - reopen, seek 사용?
+ * 6. intre_frame 복사
+ * 7. rax = 0으로 세팅팅
+ */
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
-tid_t
-process_fork (const char *name, struct intr_frame *if_ UNUSED) {
+tid_t process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
+	struct thread *parent = thread_current ();
+	parent->tf = *if_;
 	return thread_create (name,
-			PRI_DEFAULT, __do_fork, thread_current ());
+			PRI_DEFAULT, __do_fork, (void *)parent);
 }
 
 #ifndef VM
@@ -106,6 +126,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
+
 
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page (parent->pml4, va);
@@ -136,7 +157,7 @@ __do_fork (void *aux) {
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
+	struct intr_frame *parent_if = &parent->tf;
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
@@ -162,11 +183,31 @@ __do_fork (void *aux) {
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
+	for (struct list_elem *e = list_begin(&parent->fd_table);
+			e != list_end(&parent->fd_table); 
+			e = list_next(e))
+	{
+			struct fd_table_entry *parent_entry = list_entry(e, struct fd_table_entry, elem);
+			if (parent_entry == NULL || parent_entry ->fd == 0 || parent_entry->fd == 1){
+				continue;
+			}
+			
+			struct fd_table_entry *child_entry = malloc(sizeof(struct fd_table_entry));
+			if (child_entry == NULL){
+				succ = false;
+				break;
+			}
+
+			child_entry->fd = parent_entry->fd;
+			child_entry->file = file_duplicate(parent_entry->file);
+			list_push_back(&current->fd_table, &child_entry->elem);
+	}
 
 	process_init ();
-
+	sema_up(&parent->wait_sema);
 	/* Finally, switch to the newly created process. */
 	if (succ)
+		current->tf.R.rax = 0;
 		do_iret (&if_);
 error:
 	thread_exit ();
@@ -307,9 +348,11 @@ int process_wait (tid_t child_tid UNUSED) {
 	 * 5. 자식 스레드의 종료 상태를 반환 
 	 */
 	struct thread *child = find_child_thread_by_tid(child_tid);
-	if (child == NULL){
+	if (child == NULL || child->is_waited){
 		return -1;
 	}
+	
+	child->is_waited = true;
 
 	// 2. 자식 종료까지 대기 
 	sema_down(&child->wait_sema);

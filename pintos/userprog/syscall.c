@@ -15,7 +15,7 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
-
+#include "userprog/process.h"
 typedef int pid_t;
 static struct lock filesys_lock;
 
@@ -31,7 +31,8 @@ static int sys_read(int fd, void *buffer, unsigned size);
 static struct file *find_file_by_fd(int fd);
 static uint64_t sys_get_file_length(int fd);
 static pid_t sys_fork(const char *thread_name);
-static void do_fork(void *p);
+//static void do_fork(void *p);
+static pid_t sys_wait(pid_t pid);
 
 /* System call.
  *
@@ -96,8 +97,13 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 
 			break;
 
-		case SYS_WAIT:
+		case SYS_WAIT:{
+			// int wait (pid_t pid) 
+			pid_t child_pid = (pid_t) f->R.rdi;
+			f->R.rax = sys_wait(child_pid);
 			break;
+		}
+			
 
 		case SYS_CREATE: {
 			const char *file = (const char *) f->R.rdi;
@@ -170,79 +176,17 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 	//thread_exit ();
 }
 
+pid_t sys_wait(pid_t child_tid){
+	return process_wait(child_tid);
+}
 
-/** 부모가 할 일 
- * 1. 값을 복사할 구조체 전용 메모리 할당 malloc - 
- * 2. 1번 구조체에 값 채워넣기(복사할 내용만)
- * 3. sema init 0으로 
- * 4. thread_create () - 2번에서 채운 내용 args로 넘기기 
- * 5. 자식 신호 대기 
- * 6. 깬 뒤 자식 tid 값 복사 
- * 7. 자식 메모리 해제 
- */
-pid_t sys_fork(const char *thread_name){ 
+
+
+pid_t sys_fork(const char *thread_name) {  
 	struct thread *cur = thread_current();
-	// 3. thread_create
-	tid_t child_tid = thread_create(thread_name, PRI_DEFAULT, do_fork, cur);
-	
-	// 4. 대기 
-	sema_down(&cur->fork_sema);
-	if (child_tid < 0){
-		return -1;
-	}
-	// 5, 6 
-	pid_t result = child_tid;
-	return result;
+	tid_t child_tid = process_fork(thread_name, &cur->tf);
+	return (child_tid < 0) ? -1 : child_tid;
 }
-
-/** 자식이 할 일 
- * 1. 부모 arg로 받기?
- * 2. process_init?
- * 3. 부모의 children 채워넣기
- * 4. 가상 주소 공간 복사 (이건 아직 vm아니니까 pass)
- * 5. FD 테이블 복사 - reopen, seek 사용?
- * 6. intre_frame 복사
- * 7. rax = 0으로 세팅팅
- */
-void do_fork(void *p){
-		// va_copy??? 사용해야하나 
-		struct thread *parent = (struct thread *) p;
-		struct thread *child = thread_current();
-		memcpy((void *)&child->tf, (const void *)&parent->tf, sizeof(struct intr_frame));
-		child->tf.R.rax = 0;
-
-		for (struct list_elem *e = list_begin(&parent->fd_table);
-				e != list_end(&parent->fd_table); 
-				e = list_next(e)) 
-		{
-
-			struct fd_table_entry *entry = list_entry(e, struct fd_table_entry, elem);
-			if (entry == NULL || entry ->fd == STDIN_FILENO || entry->fd == STDOUT_FILENO ){
-				continue;
-			}
-			// list_push_back(&child->fd_table, &entry->elem);
-			
-			// 부모와 다른 file 객체를 갖게 하기 (파일의 메타데이터들을 담은 inode는 같음)
-			struct file *child_file =file_reopen(entry->file);
-			if (child_file == NULL){
-				continue;
-			}
-			
-			struct fd_table_entry *child_entry = malloc(sizeof(struct fd_table_entry));
-			if (child_entry == NULL){
-				continue;
-			}
-
-			child_entry->file = child_file;
-			child_entry->fd = entry->fd;
-			list_push_back(&child->fd_table, &child_entry->elem);
-		}
-
-		// file_duplicate
-		sema_up(&parent->fork_sema);
-		do_iret(&child->tf);
-}
-
 
 
 uint64_t sys_get_file_length(int fd) {

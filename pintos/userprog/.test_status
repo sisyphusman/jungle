@@ -6,8 +6,8 @@ read-bad-fd PASS
 args-multiple PASS
 create-normal PASS
 open-twice PASS
-exec-arg FAIL
 exec-missing FAIL
+exec-arg FAIL
 read-bad-ptr PASS
 create-long PASS
 fork-close FAIL
