@@ -33,6 +33,7 @@ static uint64_t sys_get_file_length(int fd);
 static pid_t sys_fork(const char *thread_name);
 //static void do_fork(void *p);
 static pid_t sys_wait(pid_t pid);
+static void sys_exec(char *file);
 
 /* System call.
  *
@@ -94,8 +95,9 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			
 
 		case SYS_EXEC:{
-			// int wait (pid_t pid) 
-			sys_exec((pid_t) f->R.rdi);
+			// int exec (const char *file) 
+			char *file = (char *) f->R.rdi;
+			sys_exec(file);
 			break;
 		}
 
@@ -178,10 +180,17 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 }
 
 
-void sys_exec(pid_t child_tid){
+/**
+ * command_line으로 실행가능한 파일명 주어진 것 
+ * Return 값 
+ *   - 성공 시 : void 
+ *   - 실패 시 : exit state -1 반환 
+ * Note : file descriptor는 exec 함수 호출 시에 열린 상태로 있다
+ */ 
+void sys_exec(char *file){
+
 	int result = 0;
-	result = process_exec(child_tid);
-	// process_wait(child_tid);
+	
 	if (result != 0){
 		sys_exit(-1);
 	}

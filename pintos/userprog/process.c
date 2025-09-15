@@ -192,7 +192,6 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	struct intr_frame parent_if = fork_args->parent_intr_f;
 
 	current->parent = parent;
-	//list_push_back(&parent->child_list, &current->child_elem);
 
 	bool succ = true;
 

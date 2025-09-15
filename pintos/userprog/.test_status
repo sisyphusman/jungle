@@ -1,7 +1,7 @@
 exec-bad-ptr PASS
 sm-full PASS
 rox-simple FAIL
-fork-multiple PASS
+fork-multiple FAIL
 args-dbl-space PASS
 read-bad-fd PASS
 args-multiple PASS
@@ -10,8 +10,8 @@ syn-write FAIL
 syn-remove FAIL
 create-normal PASS
 open-twice PASS
-exec-arg FAIL
 exec-missing FAIL
+exec-arg FAIL
 read-bad-ptr PASS
 create-long PASS
 fork-close PASS
