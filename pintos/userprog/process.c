@@ -50,9 +50,7 @@ process_create_initd (const char *file_name) {
 	char *program_command;
 	char *str_point;
 
-	lock_init(&filesys_lock);
 
-	
 	strlcpy(command_copy, file_name, sizeof(command_copy));
 	program_command = strtok_r(command_copy, " ", &str_point);
 
@@ -232,9 +230,6 @@ process_wait (tid_t child_tid) {
 	int status = t->exit_status; // RUNNING 중 정보 먹음 
 	list_remove(&t->children_elem); // 이제 유저프로그램 정보 필요 없어 
 	sema_up(&t->exit_sema); // 좀비 프로세스 깨워 
-	
-	
-
 	//while(1);
 	 //return -1;
 	return status;
@@ -246,12 +241,20 @@ process_wait (tid_t child_tid) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current();
+
+	for(int fd =2 ; fd < FDT_SIZE; fd++){
+		if(curr->fdt[fd] != NULL){
+			file_close(curr->fdt[fd]);
+
+			//curr->fdt[fd] = NULL;
+		}
+	}
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	//printf("process_exit ");
-	curr->exit_status = 0;
+	//curr->exit_status = 0;
 
 	
 	sema_up(&curr->wait_sema); // 세마 up 하고 좀비 프로세스가 됨

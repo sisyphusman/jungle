@@ -41,6 +41,8 @@ syscall_init (void) {
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+
+	lock_init(&filesys_lock);
 }
 
 /* The main system call interface */
@@ -48,7 +50,6 @@ void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
 	int syscall = f->R.rax;
-
 	switch (syscall)
 	{
 	case SYS_WRITE:
@@ -63,8 +64,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		halt();
 		break;
 	case SYS_OPEN:
-		const char *file_name = (const char *)f->R.rdi;
-		f->R.rax = open(file_name);
+		f->R.rax = open((const char *)f->R.rdi);
+		break;
+	case SYS_CLOSE:
 		break;
 	case SYS_FORK:
 		break;
@@ -144,7 +146,24 @@ int open (const char *file){
 	return fd;
 }
 
+void close (int fd){
+	struct thread *t;
+	if(fd < 2 || fd >= FDT_SIZE){
+		exit(-1);
+	}
+	struct file *my_fd_file = t->fdt[fd];
 
+	if(my_fd_file == NULL){
+		exit(-1);
+	}
+
+	lock_acquire(&filesys_lock);
+    file_close(my_fd_file);
+    lock_release(&filesys_lock);
+
+	t->fdt[fd] = NULL;
+
+}
 
 
 // int exec (const char *cmd_line){
