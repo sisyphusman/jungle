@@ -16,21 +16,23 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 
+typedef int pid_t;
+static struct lock filesys_lock;
+
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 static void sys_exit (int status);
 static int sys_write(int fd, const void *buf, size_t size);
 static void validate_user_buffer(const void *buf, size_t size);
 static void validate_fd(int fd);
-static bool file_create (const char *file, unsigned initial_size);
-static int open_file(const char *file);
-static int read(int fd, void *buffer, unsigned size);
+static bool sys_file_create (const char *file, unsigned initial_size);
+static int sys_open_file(const char *file);
+static int sys_read(int fd, void *buffer, unsigned size);
 static struct file *find_file_by_fd(int fd);
-static uint64_t get_file_length(int fd);
-static pid_t fork(const char *thread_name);
+static uint64_t sys_get_file_length(int fd);
+static pid_t sys_fork(const char *thread_name);
+static void do_fork(void *p);
 
-typedef int pid_t;
-static struct lock filesys_lock;
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -84,7 +86,8 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			
 		case SYS_FORK:{
 			const char *thread_name = (char *) f->R.rdi;
-			f->R.rax = fork(thread_name, f);
+			cur->tf = *f;
+			f->R.rax = sys_fork(thread_name);
 			break;
 		}
 			
@@ -99,7 +102,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CREATE: {
 			const char *file = (const char *) f->R.rdi;
 			unsigned initial_size = (int) f->R.rsi;
-			f->R.rax = file_create(file, initial_size);
+			f->R.rax = sys_file_create(file, initial_size);
 			break;
 		}
 			
@@ -109,7 +112,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 
 		case SYS_OPEN:{
 			const char *file = (const char *) f->R.rdi;
-			int result = open_file(file);
+			int result = sys_open_file(file);
 			f->R.rax = result;
 			break;
 		}
@@ -117,7 +120,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 
 		case SYS_FILESIZE:{
 			int fd = (int) f->R.rdi;
-			f->R.rax = get_file_length(fd);
+			f->R.rax = sys_get_file_length(fd);
 			break;
 		}
 			
@@ -126,7 +129,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			int fd = (int) f->R.rdi;
 			void *buf = (void *) f->R.rsi;
 			unsigned size = (unsigned) f->R.rdx;
-			int result = read(fd, buf, size);
+			int result = sys_read(fd, buf, size);
 			f->R.rax = result;
 			break;
 		}
@@ -177,14 +180,8 @@ void syscall_handler (struct intr_frame *f UNUSED) {
  * 6. 깬 뒤 자식 tid 값 복사 
  * 7. 자식 메모리 해제 
  */
-pid_t fork(const char *thread_name, struct intr_frame *frame){ 
+pid_t sys_fork(const char *thread_name){ 
 	struct thread *cur = thread_current();
-	// 1. 보따리 전용 메모리 할당 
-	struct fork_args *f_args = malloc(sizeof(struct fork_args));
-
-	// 2. 메모리에 값 채워넣기
-	memcpy(&cur->tf, frame, sizeof(struct intr_frame));
-
 	// 3. thread_create
 	tid_t child_tid = thread_create(thread_name, PRI_DEFAULT, do_fork, cur);
 	
@@ -193,10 +190,8 @@ pid_t fork(const char *thread_name, struct intr_frame *frame){
 	if (child_tid < 0){
 		return -1;
 	}
-
 	// 5, 6 
 	pid_t result = child_tid;
-	free(f_args);
 	return result;
 }
 
@@ -214,15 +209,43 @@ void do_fork(void *p){
 		struct thread *parent = (struct thread *) p;
 		struct thread *child = thread_current();
 		memcpy((void *)&child->tf, (const void *)&parent->tf, sizeof(struct intr_frame));
-		
+		child->tf.R.rax = 0;
+
+		for (struct list_elem *e = list_begin(&parent->fd_table);
+				e != list_end(&parent->fd_table); 
+				e = list_next(e)) 
+		{
+
+			struct fd_table_entry *entry = list_entry(e, struct fd_table_entry, elem);
+			if (entry == NULL || entry ->fd == STDIN_FILENO || entry->fd == STDOUT_FILENO ){
+				continue;
+			}
+			// list_push_back(&child->fd_table, &entry->elem);
+			
+			// 부모와 다른 file 객체를 갖게 하기 (파일의 메타데이터들을 담은 inode는 같음)
+			struct file *child_file =file_reopen(entry->file);
+			if (child_file == NULL){
+				continue;
+			}
+			
+			struct fd_table_entry *child_entry = malloc(sizeof(struct fd_table_entry));
+			if (child_entry == NULL){
+				continue;
+			}
+
+			child_entry->file = child_file;
+			child_entry->fd = entry->fd;
+			list_push_back(&child->fd_table, &child_entry->elem);
+		}
 
 		// file_duplicate
-		
+		sema_up(&parent->fork_sema);
+		do_iret(&child->tf);
 }
 
 
 
-uint64_t get_file_length(int fd) {
+uint64_t sys_get_file_length(int fd) {
 	struct file *file_ptr = find_file_by_fd(fd);
 	if (file_ptr == NULL){
 		return -1;
@@ -236,7 +259,7 @@ uint64_t get_file_length(int fd) {
 
 
 // return : 실제 읽은 값  (오류 시 -1)
-int read (int fd, void *buffer, unsigned size) {
+int sys_read (int fd, void *buffer, unsigned size) {
 	if (fd == STDIN_FILENO){
 		for (int i = 0; i < size; i++){
 			((uint8_t *)buffer)[i] = input_getc();
@@ -285,7 +308,7 @@ struct file *find_file_by_fd(int fd){
  * 하나의 프로세스에 의해서든 다른 여러개의 프로세스에 의해서든, 하나의 파일이 두 번 이상 열리면 그때마다 open 시스템콜은 새로운 식별자를 반환합니다. 
  * FD는 포인터 주소만 -> 이중 포인터
  */
-int open_file(const char *file){
+int sys_open_file(const char *file){
 	
 	validate_addr(file);
 
@@ -309,7 +332,7 @@ int open_file(const char *file){
 
 // 파일이 성공적으로 생성 시 true 반환 
 // 생성만하고 open하지 않는다.
-bool file_create (const char *file, unsigned initial_size) {
+bool sys_file_create (const char *file, unsigned initial_size) {
 	validate_addr(file);
 	return filesys_create(file, initial_size);
 }
