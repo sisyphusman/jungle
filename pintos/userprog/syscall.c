@@ -24,20 +24,26 @@ static struct lock filesys_lock;
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
-static void sys_exit (int status);
-static int sys_write(int fd, const void *buf, size_t size);
-static void validate_user_buffer(const void *buf, size_t size);
-static void validate_fd(int fd);
-static bool sys_file_create (const char *file, unsigned initial_size);
-static int sys_open_file(const char *file);
-static int sys_read(int fd, void *buffer, unsigned size);
-static struct file *find_file_by_fd(int fd);
 static uint64_t sys_get_file_length(int fd);
 static pid_t sys_fork(const char *thread_name);
-//static void do_fork(void *p);
 static pid_t sys_wait(pid_t pid);
 static tid_t sys_exec(char *file);
+static bool sys_remove(const char *file);
 
+//
+static int sys_open_file(const char *file);
+static int sys_read(int fd, void *buffer, unsigned size);
+static bool sys_file_create (const char *file, unsigned initial_size);
+static void sys_exit (int status);
+static unsigned sys_tell(int fd);
+static void sys_seek(int fd, unsigned position);
+static int sys_write(int fd, const void *buf, size_t size);
+static void sys_close(int fd);
+
+static struct file *find_file_by_fd(int fd);
+static void validate_user_buffer(const void *buf, size_t size);
+static void validate_fd(int fd);
+static void validate_user_vaddr(const void *addr);
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -119,8 +125,12 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		}
 			
 
-		case SYS_REMOVE:
+		case SYS_REMOVE:{
+			const char *file = (const char *) f->R.rdi;
+			f->R.rax = sys_remove(file);
 			break;
+		}
+			
 
 		case SYS_OPEN:{
 			const char *file = (const char *) f->R.rdi;
@@ -135,7 +145,6 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			f->R.rax = sys_get_file_length(fd);
 			break;
 		}
-			
 
 		case SYS_READ: {
 			int fd = (int) f->R.rdi;
@@ -146,13 +155,6 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 		}
 
-		/**
-		 * Return
-		 * - 실제 적힌 수 
-		 * - 0 : 바이트 적을 수 없으면
-		 * -
-		 */
-
 		case SYS_WRITE:{
 			int fd = (int) f->R.rdi;
 			const void *buf = (const void *) f->R.rsi;
@@ -162,16 +164,26 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 		}
 
+		case SYS_SEEK:{
+			int fd = (int) f->R.rdi;
+			unsigned position = (unsigned) f->R.rsi;
+			sys_seek(fd, position);
+			break;
+		}
+			
+		// 열려진 파일 fd에서 읽히거나 써질 다음 바이트의 위치를 반환
+		case SYS_TELL: {
+			// unsigned tell (int fd);
+			f->R.rax = sys_tell((int) f->R.rdi);
+			break;
+		}
 			
 
-		case SYS_SEEK:
+		case SYS_CLOSE:{
+			sys_close((int) f->R.rdi);
 			break;
-
-		case SYS_TELL:
-			break;
-
-		case SYS_CLOSE:
-			break;
+		}
+			
 
 		default:{
 			sys_exit(-1);
@@ -190,6 +202,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
  */ 
 tid_t sys_exec(char *command_line){
 	// command_line은 유저 포인터니까 커널 포인터로 변경 (init에서 했던 것 처럼)
+	validate_user_vaddr(command_line);
 	tid_t tid = syscall_process_execute(command_line);
 	if (tid < 0){
 		sys_exit(-1);
@@ -197,6 +210,12 @@ tid_t sys_exec(char *command_line){
 	return tid;
 }
 
+// 유저 가상주소인지 + 실제 매핑되어 있는지 검증 
+void validate_user_vaddr(const void *addr) {
+	if (addr == NULL || !(is_user_vaddr(addr)) || pml4_get_page(thread_current()->pml4, addr) == NULL) {
+		sys_exit(-1);
+	}
+}
 
 
 pid_t sys_wait(pid_t child_tid){
@@ -251,20 +270,6 @@ int sys_read (int fd, void *buffer, unsigned size) {
 	return n;
 }
 
-struct file *find_file_by_fd(int fd){
-	const struct thread *cur = thread_current();
-
-	for(struct list_elem *e = list_begin(&cur->fd_table);
-		e != list_end(&cur->fd_table);
-		e = list_next(e))
-	{
-		struct fd_table_entry *entry = list_entry(e, struct fd_table_entry, elem);
-		if (entry->fd == fd){
-			return entry->file;
-		}
-	}
-	return NULL;
-}
 
 /**
  * Return
@@ -321,6 +326,34 @@ void sys_exit(int status){
 }
 
 
+// 열려진 파일 fd에서 읽히거나 써질 다음 바이트의 위치를 반환
+// 파일의 시작지점부터 몇바이트인지로 표현
+unsigned sys_tell(int fd) {
+	if (fd < 0) {
+		sys_exit(-1);
+	}
+	
+	struct file *file_ptr = find_file_by_fd(fd);
+	if (file_ptr == NULL){
+		sys_exit(-1);
+	}
+	
+	return (unsigned) file_tell(file_ptr);
+}
+
+
+void sys_seek(int fd, unsigned position) {
+	if (fd < 0) {
+		sys_exit(-1);
+	}
+	struct file *file_ptr = find_file_by_fd(fd);
+	if (file_ptr == NULL){
+		sys_exit(-1);
+	}
+		
+	file_seek(file_ptr, position);
+}
+
 // Note : arg buf는 사용자 프로세스 주소 공간에 있는 포인터 
 int sys_write(int fd, const void *buf, size_t size){ 
 	if (size == 0) return 0;
@@ -346,6 +379,26 @@ int sys_write(int fd, const void *buf, size_t size){
 	lock_release(&filesys_lock);
 	return n;
 }
+
+
+void sys_close (int fd) {
+	if (fd < 0 ){
+		return;
+	}
+	
+	const struct thread *cur = thread_current();
+	struct file *file_ptr = find_file_by_fd(fd);
+	if (file_ptr == NULL){
+		return;
+	}
+	file_close(file_ptr);
+}
+
+bool sys_remove(const char *file) {
+	validate_addr(file);
+	return filesys_remove(file);
+}
+
 
 /**
  * 검증할 것 
@@ -386,4 +439,19 @@ void validate_addr(const void *addr) {
 	if (addr == NULL || !(is_user_vaddr(addr)) || pml4_get_page(thread_current()->pml4, addr) == NULL) {
 		sys_exit(-1);
 	}
+}
+
+struct file *find_file_by_fd(int fd){
+	const struct thread *cur = thread_current();
+
+	for(struct list_elem *e = list_begin(&cur->fd_table);
+		e != list_end(&cur->fd_table);
+		e = list_next(e))
+	{
+		struct fd_table_entry *entry = list_entry(e, struct fd_table_entry, elem);
+		if (entry->fd == fd){
+			return entry->file;
+		}
+	}
+	return NULL;
 }
