@@ -41,6 +41,7 @@ static int sys_write(int fd, const void *buf, size_t size);
 static void sys_close(int fd);
 
 static struct file *find_file_by_fd(int fd);
+struct fd_table_entry *find_file_entry_by_fd(int fd);
 static void validate_user_buffer(const void *buf, size_t size);
 static void validate_fd(int fd);
 static void validate_user_vaddr(const void *addr);
@@ -387,11 +388,16 @@ void sys_close (int fd) {
 	}
 	
 	const struct thread *cur = thread_current();
-	struct file *file_ptr = find_file_by_fd(fd);
-	if (file_ptr == NULL){
+	// 이거 매우 비효율적임. 나중에 배열 형식으로 바꾸기 
+	struct fd_table_entry *entry = find_file_entry_by_fd(fd);
+	if (entry == NULL){
 		return;
 	}
+	
+	struct file *file_ptr = entry->file;
 	file_close(file_ptr);
+	list_remove(&entry->elem);
+	free(entry);
 }
 
 bool sys_remove(const char *file) {
@@ -451,6 +457,23 @@ struct file *find_file_by_fd(int fd){
 		struct fd_table_entry *entry = list_entry(e, struct fd_table_entry, elem);
 		if (entry->fd == fd){
 			return entry->file;
+		}
+	}
+	return NULL;
+}
+
+
+
+struct fd_table_entry *find_file_entry_by_fd(int fd){
+	const struct thread *cur = thread_current();
+
+	for(struct list_elem *e = list_begin(&cur->fd_table);
+		e != list_end(&cur->fd_table);
+		e = list_next(e))
+	{
+		struct fd_table_entry *entry = list_entry(e, struct fd_table_entry, elem);
+		if (entry->fd == fd){
+			return entry;
 		}
 	}
 	return NULL;

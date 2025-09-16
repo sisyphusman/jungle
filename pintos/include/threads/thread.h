@@ -117,6 +117,7 @@ struct thread {
 	int exit_status; // 0 = 정상 종료 1 = 의도된 비정상 종료 -1 = 커널에 의한 비정상 종료 
 	uint64_t *pml4;                     /* Page map level 4 */
 	struct list fd_table;
+	// struct file *fd_table[256];
 	int next_fd;
 	bool is_waited;
 	
