@@ -29,7 +29,7 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-#define FDT_SIZE 8
+#define FDT_SIZE 32
 
 /* A kernel thread or user process.
  *
@@ -109,8 +109,6 @@ struct thread {
 	//struct list_elem all_elem;
 	struct list_elem children_elem;
 
-	// struct list children_list;
-	// struct list_elem children_elem;
 
 	int exit_status;
 
