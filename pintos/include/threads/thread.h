@@ -128,13 +128,7 @@ struct thread {
 	struct semaphore fork_sema;
 	bool fork_success;
 	struct intr_frame *parent_if;
-
- #ifdef USERPROG
 	/* Owned by userprog/process.c. */
-	uint64_t *pml4;                     /* Page map level 4 */
-	struct file *fdt[FDT_SIZE];
-
-
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
