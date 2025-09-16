@@ -29,12 +29,10 @@ static pid_t sys_fork(const char *thread_name);
 static pid_t sys_wait(pid_t pid);
 static tid_t sys_exec(char *file);
 static bool sys_remove(const char *file);
-
-//
 static int sys_open_file(const char *file);
 static int sys_read(int fd, void *buffer, unsigned size);
 static bool sys_file_create (const char *file, unsigned initial_size);
-static void sys_exit (int status);
+void sys_exit (int status);
 static unsigned sys_tell(int fd);
 static void sys_seek(int fd, unsigned position);
 static int sys_write(int fd, const void *buf, size_t size);

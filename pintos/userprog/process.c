@@ -282,12 +282,6 @@ int process_exec (void *f_name) {
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
-	if (cur->running_file) {
-		file_allow_write(cur->running_file);
-		file_close(cur->running_file);
-		cur->running_file = NULL;
-	}
-
 	/* 이전 컨텍스트 정리: 페이지 테이블/파일 핸들 등 정리 */
 	process_cleanup ();
 	
