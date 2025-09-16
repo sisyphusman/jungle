@@ -110,6 +110,7 @@ struct thread {
 	struct list_elem children_elem;
 	struct list children_list;
 
+
 	int exit_status;
 
 
@@ -128,6 +129,10 @@ struct thread {
 	bool fork_success;
 	struct intr_frame *parent_if;
 
+ #ifdef USERPROG
+	/* Owned by userprog/process.c. */
+	uint64_t *pml4;                     /* Page map level 4 */
+	struct file *fdt[FDT_SIZE];
 
 
 #endif
