@@ -206,6 +206,7 @@ tid_t sys_exec(char *command_line){
 	validate_user_vaddr(command_line);
 	tid_t tid = syscall_process_execute(command_line);
 	if (tid < 0){
+		//thread_current()->exit_status = -1;
 		sys_exit(-1);
 	}
 	return tid;

@@ -296,6 +296,7 @@ int process_exec (void *f_name) {
 	
 	success = load (argv[0], &_if);
 	if (!success){
+		thread_current()->exit_status = -1;
 		return TID_ERROR;
 	}
 	
@@ -345,7 +346,7 @@ int syscall_exec(char *command_line){
 	char *argv[MAX_ARGV];
 	int argc = tokenize_command_line(command_line, argv);
 	if (argc == 0){
-		return -1;
+		return TID_ERROR;
 	}
 	success = load (argv[0], &_if);
 	if (!success){
@@ -356,7 +357,7 @@ int syscall_exec(char *command_line){
 	// strlcpy(cur->name, argv[0], sizeof(cur->name));
 	palloc_free_page (command_line);
 	// cur->exit_status = 81;
-	sema_up(&cur->wait_sema);
+	// sema_up(&cur->wait_sema);
 	do_iret (&_if);
 	NOT_REACHED ();
 	return -1;
