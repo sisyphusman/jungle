@@ -246,6 +246,7 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	process_init ();
 	// test
 	// current->exit_status = 81;
+	// current->running_file = NULL;
 
 	// 6. 부모 깨우기 
 	sema_up(&parent->fork_sema);
@@ -273,16 +274,23 @@ error:
  * ./filename -p 8080:8181 good 
  */ 
 int process_exec (void *f_name) {
+	struct thread *cur = thread_current ();
 	char *command_line = f_name;
 	bool success;
-
 	struct intr_frame _if;
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
+	if (cur->running_file) {
+		file_allow_write(cur->running_file);
+		file_close(cur->running_file);
+		cur->running_file = NULL;
+	}
+
 	/* 이전 컨텍스트 정리: 페이지 테이블/파일 핸들 등 정리 */
 	process_cleanup ();
+	
 
 	// if (is_user_pte(command_line)){
 	// 	return -1;
@@ -354,7 +362,6 @@ int syscall_exec(char *command_line){
 	}
 	
 	build_stack(&_if, argv, argc);
-	// strlcpy(cur->name, argv[0], sizeof(cur->name));
 	palloc_free_page (command_line);
 	// cur->exit_status = 81;
 	// sema_up(&cur->wait_sema);
@@ -503,12 +510,17 @@ void process_exit (void) {
 
 	/**
 	 * todo
-	 * 1. file 정리 必 
+	 * 1. file 정리 必 - ALLOW, CLOSE
+	 * 2. ..... 
 	 */ 
 	struct thread *cur = thread_current();
-
+	struct file *running_file = cur->running_file;
+	// if (running_file != NULL){
+	// 	file_allow_write(running_file);
+	// 	file_close(running_file);
+	// 	cur->running_file = NULL;
+	// }
 	process_cleanup ();
-	// thread_exit();
 }
 
 /* Free the current process's resources. */
@@ -713,7 +725,14 @@ load (const char *file_name, struct intr_frame *if_) {
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close (file);
+	//file_close (file)
+	if (success){
+		file_deny_write(file);
+		t->running_file = file;
+	} else {
+		file_close(file);
+	}
+	
 	return success;
 }
 

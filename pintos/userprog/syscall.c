@@ -318,8 +318,14 @@ void sys_exit(int status){
 	cur->exit_status = status;
 	printf("%s: exit(%d)\n", cur->name, status);
 
-	//if (cur->)
+	
 	if (cur->parent != NULL){
+		if (cur->running_file){
+			file_allow_write(cur->running_file);
+			file_close(cur->running_file);
+			cur->running_file = NULL;
+		}
+
 		sema_up(&cur->wait_sema);  // 꺠우고 ()
 		sema_down(&cur->exit_sema);
 	}

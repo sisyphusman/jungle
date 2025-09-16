@@ -120,6 +120,7 @@ struct thread {
 	// struct file *fd_table[256];
 	int next_fd;
 	bool is_waited;
+	struct file *running_file;
 	
 #endif
 #ifdef VM
