@@ -309,7 +309,7 @@ int process_exec (void *f_name) {
 
 
 //
-tid_t process_execute (const char *file_name) {
+tid_t syscall_process_execute (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
 
@@ -318,8 +318,9 @@ tid_t process_execute (const char *file_name) {
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 	
-	tid = thread_create (thread_current()->name, PRI_DEFAULT, syscall_exec, fn_copy);
-	sema_down(&thread_current()->wait_sema);
+	tid = syscall_exec(fn_copy);
+	// tid = thread_create (thread_current()->name, PRI_DEFAULT, syscall_exec, fn_copy);
+	// sema_down(&thread_current()->wait_sema);
 	if (tid == TID_ERROR){
 		palloc_free_page (fn_copy);		
 	}

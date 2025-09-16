@@ -36,7 +36,7 @@ static uint64_t sys_get_file_length(int fd);
 static pid_t sys_fork(const char *thread_name);
 //static void do_fork(void *p);
 static pid_t sys_wait(pid_t pid);
-static void sys_exec(char *file);
+static tid_t sys_exec(char *file);
 
 /* System call.
  *
@@ -188,12 +188,13 @@ void syscall_handler (struct intr_frame *f UNUSED) {
  * hint : file descriptor는 exec 함수 호출 시에 열린 상태로 있다
  * 흠... 힌트가 file.c의 file_reopen 쓰라는 뜻인가 
  */ 
-void sys_exec(char *command_line){
+tid_t sys_exec(char *command_line){
 	// command_line은 유저 포인터니까 커널 포인터로 변경 (init에서 했던 것 처럼)
-	tid_t tid = process_execute(command_line);
+	tid_t tid = syscall_process_execute(command_line);
 	if (tid < 0){
 		sys_exit(-1);
 	}
+	return tid;
 }
 
 

@@ -12,7 +12,7 @@ create-normal PASS
 bad-write FAIL
 open-twice PASS
 exec-arg PASS
-exec-missing FAIL
+exec-missing PASS
 read-bad-ptr PASS
 create-long PASS
 fork-close PASS
