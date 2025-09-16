@@ -204,8 +204,6 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	
-
 	t->parent = thread_current ();
 	list_push_back(&thread_current()->children, &t->child_elem);
 

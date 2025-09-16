@@ -35,6 +35,7 @@ static void *push(struct intr_frame *interrupt_frame, const void *src, size_t n)
 static void align_stack(struct intr_frame *interrupt_frame);
 static void build_stack(struct intr_frame *interrupt_frame, char *argv[], int argc);
 static struct thread *find_child_thread_by_tid(tid_t child_tid);
+static int syscall_exec(char *command_line);
 
 
 /* General process initializer for initd and other process. */
@@ -81,6 +82,8 @@ initd (void *f_name) {
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
 }
+
+
 
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
@@ -275,8 +278,12 @@ int process_exec (void *f_name) {
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
-	// 이전 컨텍스트 정리: 페이지 테이블/파일 핸들 등 정리 */
+	/* 이전 컨텍스트 정리: 페이지 테이블/파일 핸들 등 정리 */
 	process_cleanup ();
+
+	// if (is_user_pte(command_line)){
+	// 	return -1;
+	// }
 
 	char *argv[MAX_ARGV];  // main에 넘길 argv는 이중 포인터
 	int argc = tokenize_command_line(command_line, argv);
@@ -285,18 +292,67 @@ int process_exec (void *f_name) {
 	}
 	
 	success = load (argv[0], &_if);
+	if (!success){
+		return TID_ERROR;
+	}
+	
 	build_stack(&_if, argv, argc);
 
 	strlcpy(thread_current()->name, argv[0], sizeof(thread_current()->name));
 
 	palloc_free_page (f_name);
-	if (!success){
-		return -1;
-	}
+	
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
 }
+
+
+//
+tid_t process_execute (const char *file_name) {
+	char *fn_copy;
+	tid_t tid;
+
+	fn_copy = palloc_get_page (0);
+	if (fn_copy == NULL)
+		return TID_ERROR;
+	strlcpy (fn_copy, file_name, PGSIZE);
+	
+	tid = thread_create (thread_current()->name, PRI_DEFAULT, syscall_exec, fn_copy);
+	sema_down(&thread_current()->wait_sema);
+	if (tid == TID_ERROR){
+		palloc_free_page (fn_copy);		
+	}
+	return tid;
+}
+
+int syscall_exec(char *command_line){
+	struct thread *cur = thread_current();
+	struct intr_frame _if;
+	bool success;
+	_if.ds = _if.es = _if.ss = SEL_UDSEG;
+	_if.cs = SEL_UCSEG;
+	_if.eflags = FLAG_IF | FLAG_MBS;
+
+	char *argv[MAX_ARGV];
+	int argc = tokenize_command_line(command_line, argv);
+	if (argc == 0){
+		return -1;
+	}
+	success = load (argv[0], &_if);
+	if (!success){
+		return TID_ERROR;
+	}
+	
+	build_stack(&_if, argv, argc);
+	// strlcpy(cur->name, argv[0], sizeof(cur->name));
+	palloc_free_page (command_line);
+	sema_up(&cur->parent->wait_sema);
+	do_iret (&_if);
+	NOT_REACHED ();
+	return -1;
+}
+
 
 // return arg count
 int tokenize_command_line(char *command_line, char **argv) {
@@ -346,7 +402,7 @@ void build_stack(struct intr_frame *interrupt_frame, char *argv[], int argc) {
 	 uintptr_t null_ptr = 0;
 	 push(interrupt_frame, &null_ptr, sizeof(null_ptr));
 
-	 // 2. argv 포인터들(이중 포인터) 역순으로 push
+	 // 4. argv 포인터들(이중 포인터) 역순으로 push
 	 for (int i = argc - 1; i >= 0; i--){
 		push(interrupt_frame, &user_arg_ptrs[i], sizeof(user_arg_ptrs[i]));
 	 }

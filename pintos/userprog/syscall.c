@@ -1,4 +1,6 @@
 #include "string.h"
+#include "threads/palloc.h"
+#include "string.h"
 #include "lib/stdarg.h"
 #include "devices/input.h"
 #include "filesys/file.h"
@@ -18,6 +20,7 @@
 #include "userprog/process.h"
 typedef int pid_t;
 static struct lock filesys_lock;
+#define MAX_ARGV 64
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -66,11 +69,9 @@ syscall_init (void) {
 	lock_init(&filesys_lock);
 }
 
-/* The main system call interface */
 void syscall_handler (struct intr_frame *f UNUSED) {
-	// TODO: Your implementation goes here.
+	
 
-	// 왜 RAX인지??
 	struct thread *cur = thread_current();
 	int sys_number = f->R.rax;
 	switch (sys_number){
@@ -80,8 +81,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		}
 			
 		case SYS_EXIT: {
-			int status = (int) f->R.rdi;  // exit status
-			// printf("SYS_EXIT 호출로 받은 exit status : %d\n", status);
+			int status = (int) f->R.rdi;  
 			sys_exit(status);
 			break;
 		}
@@ -96,8 +96,8 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 
 		case SYS_EXEC:{
 			// int exec (const char *file) 
-			char *file = (char *) f->R.rdi;
-			sys_exec(file);
+			char *command_line = (char *) f->R.rdi;
+			sys_exec(command_line);
 			break;
 		}
 
@@ -185,16 +185,17 @@ void syscall_handler (struct intr_frame *f UNUSED) {
  * Return 값 
  *   - 성공 시 : void 
  *   - 실패 시 : exit state -1 반환 
- * Note : file descriptor는 exec 함수 호출 시에 열린 상태로 있다
+ * hint : file descriptor는 exec 함수 호출 시에 열린 상태로 있다
+ * 흠... 힌트가 file.c의 file_reopen 쓰라는 뜻인가 
  */ 
-void sys_exec(char *file){
-
-	int result = 0;
-	
-	if (result != 0){
+void sys_exec(char *command_line){
+	// command_line은 유저 포인터니까 커널 포인터로 변경 (init에서 했던 것 처럼)
+	tid_t tid = process_execute(command_line);
+	if (tid < 0){
 		sys_exit(-1);
 	}
 }
+
 
 
 pid_t sys_wait(pid_t child_tid){
