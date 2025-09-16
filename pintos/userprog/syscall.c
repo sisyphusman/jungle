@@ -9,7 +9,8 @@
 #include "lib/kernel/console.h"
 #include "userprog/syscall.h"
 #include <stdio.h>
-#include <stdlib.h>
+//#include <stdlib.h>
+#include <threads/malloc.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -182,6 +183,8 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			sys_close((int) f->R.rdi);
 			break;
 		}
+
+//int dup2 (int oldfd, int newfd)
 			
 
 		default:{
@@ -335,7 +338,7 @@ void sys_exit(int status){
 // 열려진 파일 fd에서 읽히거나 써질 다음 바이트의 위치를 반환
 // 파일의 시작지점부터 몇바이트인지로 표현
 unsigned sys_tell(int fd) {
-	if (fd < 0) {
+	if (fd < 0 || fd > 126) {
 		sys_exit(-1);
 	}
 	
@@ -349,7 +352,7 @@ unsigned sys_tell(int fd) {
 
 
 void sys_seek(int fd, unsigned position) {
-	if (fd < 0) {
+	if (fd < 0 || fd > 126) {
 		sys_exit(-1);
 	}
 	struct file *file_ptr = find_file_by_fd(fd);
@@ -388,7 +391,7 @@ int sys_write(int fd, const void *buf, size_t size){
 
 
 void sys_close (int fd) {
-	if (fd < 0 ){
+	if (fd < 0 || fd > 126) {
 		return;
 	}
 	
@@ -438,7 +441,7 @@ void validate_user_buffer(const void *buf, size_t size) {
 void validate_fd(int fd) {
 	// TODO: Your implementation goes here.
 	const struct thread *cur = thread_current();	
-	if (fd < 0) {
+	if (fd < 0 || fd > 126) {
 		sys_exit(-1);
 	}
 	// if (cur->fd_table[fd] == NULL) {

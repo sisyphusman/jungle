@@ -90,6 +90,9 @@ initd (void *f_name) {
 tid_t process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
 	struct thread *parent = thread_current ();
+	// if (parent->next_fd < 10) {
+		
+	// }
 
 	// 1. 메모리 할당 
 	struct fork_args *args = palloc_get_page (0);
@@ -238,16 +241,13 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 			}
 
 			child_entry->fd = parent_entry->fd;
-			child_entry->file = file_duplicate(parent_entry->file);
+			//child_entry->file = file_duplicate(parent_entry->file);
+			child_entry->file = file_reopen(parent_entry->file);
 			list_push_back(&current->fd_table, &child_entry->elem);
 		}
 	}
 
 	process_init ();
-	// test
-	// current->exit_status = 81;
-	// current->running_file = NULL;
-
 	// 6. 부모 깨우기 
 	sema_up(&parent->fork_sema);
 	// 7. 성공 시 rax 0세팅 + do_iret
