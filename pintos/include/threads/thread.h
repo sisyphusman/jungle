@@ -108,24 +108,26 @@ struct thread {
 	struct list_elem donate_elem;
 	//struct list_elem all_elem;
 	struct list_elem children_elem;
-
+	struct list children_list;
 
 	int exit_status;
 
 
 
-	struct list children_list;
-
-
-	struct semaphore wait_sema;
-	struct semaphore exit_sema;
-
-	struct thread *parent;
-
  #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
 	struct file *fdt[FDT_SIZE];
+	struct semaphore wait_sema;
+	struct semaphore exit_sema;
+
+
+	//---For Fork ---//
+	struct thread *parent;
+	struct semaphore fork_sema;
+	bool fork_success;
+	struct intr_frame *parent_if;
+
 
 
 #endif

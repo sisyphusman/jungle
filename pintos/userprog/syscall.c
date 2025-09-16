@@ -61,12 +61,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		exit(status);
 		break;
 	case SYS_FORK:
+		tid_t child_tid = process_fork((const char*)f->R.rdi, f);
+		f->R.rax = child_tid;
 		break;
 	case SYS_EXEC:
-		// const char *cmd_line = (const char *)f->R.rdi;
-		// f->R.rax = exec(cmd_line);
+		f->R.rax = process_exec(f->R.rdi);
 		break;
 	case SYS_WAIT:
+		f->R.rax = process_wait((tid_t)f->R.rdi);
 		break;
 	case SYS_CREATE:
 		f->R.rax = sys_create((const char *)f->R.rdi, (unsigned)f->R.rsi);
@@ -98,6 +100,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	//printf ("system call!\n");
 	//thread_exit ();
 }
+
+
 
 
 int write (int fd, const void *buffer, unsigned size){
@@ -133,6 +137,7 @@ int write (int fd, const void *buffer, unsigned size){
 void exit (int status)
 {	
 	struct thread *cur = thread_current();
+	cur->exit_status = status;
 	printf("%s: exit(%d)\n", cur->name, status);
 	thread_exit();
 }
@@ -284,6 +289,7 @@ get_safe_buffer(void * buffer, unsigned size){
 		}
 	}
 }
+
 
 
 // int exec (const char *cmd_line){

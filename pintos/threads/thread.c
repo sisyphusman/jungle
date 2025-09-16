@@ -463,6 +463,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	list_init(&t->held_locks); 
 	sema_init(&t->wait_sema, 0);
 	sema_init(&t->exit_sema, 0);
+	sema_init(&t->fork_sema,0);
 	list_init(&t->children_list);
 
 	t->status = THREAD_BLOCKED;
