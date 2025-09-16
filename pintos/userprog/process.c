@@ -244,6 +244,9 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	}
 
 	process_init ();
+	// test
+	// current->exit_status = 81;
+
 	// 6. 부모 깨우기 
 	sema_up(&parent->fork_sema);
 	// 7. 성공 시 rax 0세팅 + do_iret
@@ -348,7 +351,8 @@ int syscall_exec(char *command_line){
 	build_stack(&_if, argv, argc);
 	// strlcpy(cur->name, argv[0], sizeof(cur->name));
 	palloc_free_page (command_line);
-	sema_up(&cur->parent->wait_sema);
+	// cur->exit_status = 81;
+	sema_up(&cur->wait_sema);
 	do_iret (&_if);
 	NOT_REACHED ();
 	return -1;

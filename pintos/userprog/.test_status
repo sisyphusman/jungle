@@ -11,14 +11,14 @@ syn-remove FAIL
 create-normal PASS
 bad-write FAIL
 open-twice PASS
-exec-arg PASS
 exec-missing PASS
+exec-arg PASS
 read-bad-ptr PASS
 create-long PASS
 fork-close PASS
 fork-boundary PASS
-create-bound PASS
 rox-multichild FAIL
+create-bound PASS
 lg-random FAIL
 rox-child FAIL
 read-normal PASS
@@ -36,8 +36,8 @@ wait-bad-pid PASS
 lg-create PASS
 exec-read FAIL
 read-boundary PASS
-wait-twice FAIL
-exec-boundary FAIL
+wait-twice PASS
+exec-boundary PASS
 close-normal PASS
 sm-create PASS
 halt PASS
@@ -58,7 +58,7 @@ multi-child-fd FAIL
 exit PASS
 write-bad-ptr PASS
 lg-seq-block PASS
-wait-simple FAIL
+wait-simple PASS
 exec-once PASS
 args-many PASS
 fork-read PASS
