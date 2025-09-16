@@ -9,6 +9,7 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "include/userprog/process.h"
+#include "include/filesys/file.h"
 #include "intrinsic.h"
 
 void syscall_entry (void);
@@ -52,31 +53,44 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	int syscall = f->R.rax;
 	switch (syscall)
 	{
-	case SYS_WRITE:
-		//printf ("write 호출!\n");
-		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+	case SYS_HALT:
+		halt();
 		break;
 	case SYS_EXIT:
 		int status = f->R.rdi;
 		exit(status);
 		break;
-	case SYS_HALT:
-		halt();
-		break;
-	case SYS_OPEN:
-		f->R.rax = open((const char *)f->R.rdi);
-		break;
-	case SYS_CLOSE:
-		break;
 	case SYS_FORK:
+		break;
+	case SYS_EXEC:
+		// const char *cmd_line = (const char *)f->R.rdi;
+		// f->R.rax = exec(cmd_line);
+		break;
+	case SYS_WAIT:
 		break;
 	case SYS_CREATE:
 		f->R.rax = sys_create((const char *)f->R.rdi, (unsigned)f->R.rsi);
 		break;
-	// case SYS_EXEC:
-	// const char *cmd_line = (const char *)f->R.rdi;
-	// 	f->R.rax = exec(cmd_line);
-	// 	break;
+	case SYS_OPEN:
+		f->R.rax = open((const char *)f->R.rdi);
+		break;
+	case SYS_FILESIZE:
+		f->R.rax = filesize(f->R.rdi);
+		break;
+	case SYS_READ:
+		f->R.rax = read((int)f->R.rdi, f->R.rsi, (unsigned int)f->R.rdx);
+		break;
+	case SYS_WRITE:
+		//printf ("write 호출!\n");
+		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+	case SYS_SEEK:
+		break;
+	case SYS_TELL:
+		break;
+	case SYS_CLOSE:
+		close((int)f->R.rdi);
+		break;
 	default:
 	 	printf("Unknown syscall: %d\n", (int)f->R.rax);
 		break;
@@ -87,12 +101,32 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 
 int write (int fd, const void *buffer, unsigned size){
+	get_safe_buffer(buffer, size);
 
-	if(fd == 1){ // STDOUT
+	if(fd < 0 || fd >= FDT_SIZE){
+		return -1;
+	}
+
+	if(fd == 0){ // STDOUT
+		return -1;
+	}
+	else if(fd == 1){ //STDIN
 		putbuf(buffer,size);
 		return size;
 	}
-	return -1;
+	else{
+		struct thread *t = thread_current();
+		struct file *target_file = t->fdt[fd];
+
+		if(target_file == NULL){
+			return -1;
+		}
+
+		int bytes_written = file_write(target_file, buffer,size);
+
+		return bytes_written;
+
+	}
 }
 
 
@@ -124,6 +158,8 @@ static bool
 }
 
 
+
+
 int open (const char *file){
 	if(file == NULL || !is_user_vaddr(file) ||  pml4_get_page(thread_current()->pml4, file) == NULL){
 		exit(-1);
@@ -147,7 +183,7 @@ int open (const char *file){
 }
 
 void close (int fd){
-	struct thread *t;
+	struct thread *t = thread_current();
 	if(fd < 2 || fd >= FDT_SIZE){
 		exit(-1);
 	}
@@ -163,6 +199,90 @@ void close (int fd){
 
 	t->fdt[fd] = NULL;
 
+}
+
+
+int filesize(int fd){
+	if(fd < 0 || fd >= FDT_SIZE){
+		return -1;
+	}
+	struct thread *t = thread_current();
+	struct file *target_file = t->fdt[fd];
+
+	if(target_file == NULL){
+		return -1;
+	}
+
+	lock_acquire(&filesys_lock);
+	int size = file_length(target_file);
+	lock_release(&filesys_lock);
+
+	return size;
+}
+
+int
+read (int fd, void *buffer, unsigned size){
+	get_safe_buffer(buffer, size);
+	//printf("DEBUG fd_read: fd=%d, buffer=%p, size=%u\n", fd, buffer, size);
+
+	if(size == 0){
+		return 0;
+	}
+	if(fd < 0 || fd >= FDT_SIZE){
+		return -1;
+	}
+	char *char_buffer = (char *)buffer;
+	int bytes_read =0;
+	if(fd == 0){ // STDIN 
+		for(int i = 0 ; i <size ; i++){
+			int c = input_getc();
+
+			// if(c == EOF){
+			// 	break;
+			// }
+			char_buffer[i] = (char)c;
+			bytes_read++;
+
+		}
+
+		return bytes_read;
+	}
+	else if(fd ==1){ //STDOUT read하지 않음 
+		return -1;
+	}
+	else{
+		struct thread *t = thread_current();
+		if(t->fdt[fd] == NULL){
+			return -1;
+		}
+
+		lock_acquire(&filesys_lock);
+		bytes_read = file_read(t->fdt[fd], buffer, size);
+		//printf("바이트 리드: %d", bytes_read);
+		lock_release(&filesys_lock);
+
+		return bytes_read;
+	}
+
+
+}
+
+void
+get_safe_buffer(void * buffer, unsigned size){
+	if(buffer == NULL || !is_user_vaddr(buffer)){
+		exit(-1);
+	}
+	if(!is_user_vaddr(buffer + size -1)){
+		exit(-1);
+	}
+
+	void *ptr = pg_round_down(buffer); //페이지의 초깃값
+	void *endptr = buffer + size -1;
+	for(; ptr <=endptr; ptr += PGSIZE){ //페이지 별로 확인
+		if(pml4_get_page(thread_current()->pml4, ptr) == NULL){
+			exit(-1);
+		}
+	}
 }
 
 
