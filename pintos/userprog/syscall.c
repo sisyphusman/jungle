@@ -15,8 +15,8 @@
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 static bool sys_create (const char *file, unsigned initial_size);
+struct lock filesys_lock;
 
-static struct lock filesys_lock;
 
 /* System call.
  *
@@ -65,7 +65,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		f->R.rax = child_tid;
 		break;
 	case SYS_EXEC:
-		f->R.rax = process_exec(f->R.rdi);
+		f->R.rax = exec(f->R.rdi);
 		break;
 	case SYS_WAIT:
 		f->R.rax = process_wait((tid_t)f->R.rdi);
@@ -131,6 +131,18 @@ int write (int fd, const void *buffer, unsigned size){
 		return bytes_written;
 
 	}
+}
+
+int
+exec (void *f_name){
+	if(f_name == NULL || !is_user_vaddr(f_name) ||  pml4_get_page(thread_current()->pml4, f_name) == NULL){
+		return -1;
+	}
+	
+	int num = process_exec(f_name);
+
+	return num;
+
 }
 
 
@@ -285,8 +297,8 @@ get_safe_buffer(void * buffer, unsigned size){
 	void *endptr = buffer + size -1;
 	for(; ptr <=endptr; ptr += PGSIZE){ //페이지 별로 확인
 		if(pml4_get_page(thread_current()->pml4, ptr) == NULL){
-			exit(-1);
-		}
+			exit(-1); 
+		} 
 	}
 }
 

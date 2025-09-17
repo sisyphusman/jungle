@@ -7,6 +7,8 @@
 #include <string.h>
 #include "userprog/gdt.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
+#include "userprog/process.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -27,7 +29,7 @@ static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
-static struct lock filesys_lock;
+//static struct lock filesys_lock;
 
 
 /* General process initializer for initd and other process. */
@@ -247,10 +249,10 @@ fork_end:
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
 int
-process_exec (void *f_name) {
-	char *file_name = f_name;
+process_exec (void *f_name){
+
+char *file_name = f_name;
 	bool success;
-	//printf("program_exec|| 어렵다");
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -260,22 +262,29 @@ process_exec (void *f_name) {
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
+ 	if(is_kernel_vaddr(f_name)){
 	/* We first kill the current context */
-	process_cleanup ();
+	process_cleanup ();	
+	}
 
 
+	lock_acquire(&filesys_lock);
 	/* And then load the binary */
 	success = load (file_name, &_if);
 
+	lock_release(&filesys_lock);
 
 	/* If load failed, quit. */
-	palloc_free_page (file_name);
-	if (!success)
-		return -1;
-
+	if (!success){
+		exit(-1);
+	}
+		
 	/* Start switched process. */
+
 	do_iret (&_if); //유저 모드 진입 
 	NOT_REACHED ();
+
+	
 }
 
 
@@ -329,7 +338,7 @@ process_exit (void) {
 
 	
 	sema_up(&curr->wait_sema); // 세마 up 하고 좀비 프로세스가 됨
-	sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
+ 	sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
 	process_cleanup ();
 	
 
@@ -447,23 +456,38 @@ load (const char *file_name, struct intr_frame *if_) { //커널 모드에서 유
 	bool success = false;
 	int i;
 
-	char command_copy [64];
+	//char command_copy [32];
 	char *program_command;
 	char *str_point;
 	//printf("load ");
+	//strlcpy(command_copy, file_name, sizeof(command_copy));
 
-	strlcpy(command_copy, file_name, sizeof(command_copy));
-	program_command = strtok_r(command_copy, " ", &str_point);
-	/* Allocate and activate page directory. */ //페이지 테이블 생성
+    char *fn_copy = palloc_get_page(PAL_ZERO);
+    if (fn_copy == NULL)
+        return false;
+
+    // 2. 유저의 데이터를 커널 페이지로 안전하게 복사
+    strlcpy(fn_copy, file_name, PGSIZE);
+
+    // 3. 이제 안전한 '복사본'을 가지고 마음껏 수정하며 사용
+    program_command = strtok_r(fn_copy, " ", &str_point);
+
+	if (program_command == NULL) {
+        goto done; 
+    }
+	/* Allocate and activate page directory. */ //페이지 테이블 매핑 
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
 		goto done;
+
+
 	process_activate (thread_current ());
+	
 
 	/* Open executable file. */ //파일을 염(비어있는지만 확인)
 	file = filesys_open (program_command);
 	if (file == NULL) {
-		printf ("load: %s: open failed\n", file_name);
+		printf ("load: %s: open failed\n", program_command);
 		goto done;
 	}
 
@@ -604,7 +628,8 @@ load (const char *file_name, struct intr_frame *if_) { //커널 모드에서 유
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close (file);
+	palloc_free_page(fn_copy);
+	file_close(file);
 	return success;
 }
 
