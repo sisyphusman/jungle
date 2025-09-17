@@ -241,11 +241,14 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 			}
 
 			child_entry->fd = parent_entry->fd;
-			//child_entry->file = file_duplicate(parent_entry->file);
-			child_entry->file = file_reopen(parent_entry->file);
+			child_entry->file = file_duplicate(parent_entry->file);
+			//child_entry->file = file_reopen(parent_entry->file);
+			//file_seek(child_entry->file, 0);
 			list_push_back(&current->fd_table, &child_entry->elem);
 		}
 	}
+
+	current->next_fd = parent->next_fd + 1;
 
 	process_init ();
 	// 6. 부모 깨우기 

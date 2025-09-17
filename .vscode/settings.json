@@ -17,6 +17,8 @@
     "off_t.h": "c",
     "atomic": "c",
     "cstdlib": "c",
-    "intrinsic.h": "c"
+    "intrinsic.h": "c",
+    "filesys.h": "c",
+    "syscall.h": "c"
   }
 }

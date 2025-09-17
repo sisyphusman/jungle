@@ -10,6 +10,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 //#include <stdlib.h>
+#include "lib/string.h"
 #include <threads/malloc.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -286,10 +287,16 @@ int sys_read (int fd, void *buffer, unsigned size) {
 int sys_open_file(const char *file){
 	
 	validate_addr(file);
+	char *kernel_file = palloc_get_page(0);
+	if (kernel_file == NULL){
+		return -1;
+	}
+
+	strlcpy(kernel_file, file, strlen(file) + 1);
 
 	// 락 걸기 
 	lock_acquire(&filesys_lock);
-	struct file *opened_file = filesys_open(file);
+	struct file *opened_file = filesys_open(kernel_file);
 	lock_release(&filesys_lock);
 	if (opened_file == NULL){
 		return -1;
@@ -319,7 +326,6 @@ void sys_exit(int status){
 	cur->exit_status = status;
 	printf("%s: exit(%d)\n", cur->name, status);
 
-	
 	if (cur->parent != NULL){
 		if (cur->running_file){
 			file_allow_write(cur->running_file);
