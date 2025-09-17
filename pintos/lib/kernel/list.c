@@ -66,8 +66,7 @@ list_init (struct list *list) {
 /* Returns the beginning of LIST.  */
 struct list_elem *
 list_begin (struct list *list) {
-	ASSERT (list != NULL);
-	return list->head.next;
+	ASSERT (list != NULL);	return list->head.next;
 }
 
 /* Returns the element after ELEM in its list.  If ELEM is the
