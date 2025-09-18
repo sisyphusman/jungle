@@ -125,8 +125,9 @@ struct thread {
 	struct semaphore exit_sema;
 
 
+
 	//---For Fork ---//
-	struct thread *parent;
+	//struct thread *parent;
 	struct semaphore fork_sema;
 	bool fork_success;
 	struct intr_frame *parent_if;

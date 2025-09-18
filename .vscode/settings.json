@@ -10,6 +10,19 @@
     "utility": "c",
     "synch.h": "c",
     "gdt.h": "c",
-    "*.inc": "c"
+    "*.inc": "c",
+    "exception": "c",
+    "memory_resource": "c",
+    "iosfwd": "c",
+    "new": "c",
+    "ostream": "c",
+    "stop_token": "c",
+    "streambuf": "c",
+    "cstdlib": "c",
+    "atomic": "c",
+    "chrono": "c",
+    "cstdint": "c",
+    "random": "c",
+    "string.h": "c"
   }
 }

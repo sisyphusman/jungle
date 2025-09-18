@@ -310,6 +310,7 @@ process_wait (tid_t child_tid) {
 	int status = t->exit_status; // RUNNING 중 정보 먹음 
 	list_remove(&t->children_elem); // 이제 유저프로그램 정보 필요 없어 
 	sema_up(&t->exit_sema); // 좀비 프로세스 깨워 
+
 	//while(1);
 	 //return -1;
 	return status;
@@ -335,12 +336,10 @@ process_exit (void) {
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	//printf("process_exit ");
-	//curr->exit_status = 0;
 
 	sema_up(&curr->wait_sema); // 세마 up 하고 좀비 프로세스가 됨
  	sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
 	process_cleanup ();
-	
 
 
 	
@@ -456,11 +455,9 @@ load (const char *file_name, struct intr_frame *if_) { //커널 모드에서 유
 	bool success = false;
 	int i;
 
-	//char command_copy [32];
 	char *program_command;
 	char *str_point;
-	//printf("load ");
-	//strlcpy(command_copy, file_name, sizeof(command_copy));
+
 
     char *fn_copy = palloc_get_page(PAL_ZERO);
     if (fn_copy == NULL)

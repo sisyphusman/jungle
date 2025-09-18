@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -15,6 +16,8 @@
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 static bool sys_create (const char *file, unsigned initial_size);
+unsigned tell(int fd);
+bool sys_remove (const char *file);
 struct lock filesys_lock;
 
 
@@ -73,6 +76,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_CREATE:
 		f->R.rax = sys_create((const char *)f->R.rdi, (unsigned)f->R.rsi);
 		break;
+	case SYS_REMOVE:
+		f->R.rax = sys_remove((const char *)f->R.rdi);
+		break;
 	case SYS_OPEN:
 		f->R.rax = open((const char *)f->R.rdi);
 		break;
@@ -83,13 +89,13 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		f->R.rax = read((int)f->R.rdi, f->R.rsi, (unsigned int)f->R.rdx);
 		break;
 	case SYS_WRITE:
-		//printf ("write 호출!\n");
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_SEEK:
 		seek((int)f->R.rdi, (unsigned)f->R.rsi);
 		break;
 	case SYS_TELL:
+		f->R.rax = tell(f->R.rdi);
 		break;
 	case SYS_CLOSE:
 		close((int)f->R.rdi);
@@ -112,10 +118,10 @@ int write (int fd, const void *buffer, unsigned size){
 		return -1;
 	}
 
-	if(fd == 0){ // STDOUT
+	if(fd == 0){ // STDIN
 		return -1;
 	}
-	else if(fd == 1){ //STDIN
+	else if(fd == 1){ //STDOUT
 		putbuf(buffer,size);
 		return size;
 	}
@@ -127,11 +133,7 @@ int write (int fd, const void *buffer, unsigned size){
 			return -1;
 		}
 
-		int bytes_written = file_write(target_file, buffer,size);
-
-		if(bytes_written == -1){
-			bytes_written = 0;
-		}
+		int bytes_written = file_write(target_file, buffer, size);
 
 		return bytes_written;
 
@@ -186,6 +188,7 @@ int open (const char *file){
 	if(file == NULL || !is_user_vaddr(file) ||  pml4_get_page(thread_current()->pml4, file) == NULL){
 		exit(-1);
 	}
+
 	lock_acquire(&filesys_lock);
 
 	struct file *file_open = filesys_open(file);
@@ -305,6 +308,8 @@ get_safe_buffer(void * buffer, unsigned size){
 			exit(-1); 
 		} 
 	}
+
+
 }
 
 
@@ -312,7 +317,7 @@ void
 seek (int fd, unsigned position) {
 
 	if(fd < 2 || fd >= FDT_SIZE){
-		exit(-1);
+		return -1;
 	}
 
 	struct thread *t = thread_current();
@@ -325,3 +330,35 @@ seek (int fd, unsigned position) {
 	file_seek(targetfile,position);
 	lock_release(&filesys_lock);
 }
+
+bool sys_remove (const char *file){
+	lock_acquire(&filesys_lock);
+	bool success = filesys_remove(file);
+	lock_release(&filesys_lock);
+
+	return success;
+
+}
+
+
+
+unsigned
+tell (int fd) {
+	if(fd < 2 || fd >= FDT_SIZE){
+		exit(-1);
+	}
+
+	struct thread *t = thread_current();
+
+	struct file *targetfile = t->fdt[fd];
+	if(targetfile == NULL){
+		exit(-1);
+	}
+	lock_acquire(&filesys_lock);
+	off_t file_tell_return = file_tell(targetfile);
+	lock_release(&filesys_lock);
+
+	return file_tell_return;
+}
+
+
