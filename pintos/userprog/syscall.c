@@ -229,8 +229,7 @@ pid_t sys_wait(pid_t child_tid){
 
 
 pid_t sys_fork(const char *thread_name) {  
-	struct thread *cur = thread_current();
-	tid_t child_tid = process_fork(thread_name, &cur->tf);
+	tid_t child_tid = process_fork(thread_name, &thread_current()->tf);
 	return (child_tid < 0) ? -1 : child_tid;
 }
 
@@ -334,7 +333,9 @@ void sys_exit(int status){
 		}
 
 		sema_up(&cur->wait_sema);  // 꺠우고 ()
-		sema_down(&cur->exit_sema);
+		if (cur->is_waited){
+			sema_down(&cur->exit_sema);
+		}
 	}
 	
 	thread_exit();

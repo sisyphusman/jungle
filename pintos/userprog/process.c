@@ -287,11 +287,6 @@ int process_exec (void *f_name) {
 
 	/* 이전 컨텍스트 정리: 페이지 테이블/파일 핸들 등 정리 */
 	process_cleanup ();
-	
-
-	// if (is_user_pte(command_line)){
-	// 	return -1;
-	// }
 
 	char *argv[MAX_ARGV];  // main에 넘길 argv는 이중 포인터
 	int argc = tokenize_command_line(command_line, argv);
@@ -360,8 +355,6 @@ int syscall_exec(char *command_line){
 	
 	build_stack(&_if, argv, argc);
 	palloc_free_page (command_line);
-	// cur->exit_status = 81;
-	// sema_up(&cur->wait_sema);
 	do_iret (&_if);
 	NOT_REACHED ();
 	return -1;
@@ -466,6 +459,7 @@ int process_wait (tid_t child_tid UNUSED) {
 
 	// 2. 자식 종료까지 대기 
 	sema_down(&child->wait_sema);
+	child->is_waited = false;
 
 	int status = child->exit_status;
 	list_remove(&child->child_elem);
@@ -504,14 +498,8 @@ void process_exit (void) {
 	// 	sema_up(&cur->wait_sema);  // 꺠우고 
 	// 	sema_down(&cur->exit_sema); // 자원정리하기 전에 부모가 뭐좀 하라고 놨두기
 	// }
-
-	/**
-	 * todo
-	 * 1. file 정리 必 - ALLOW, CLOSE
-	 * 2. ..... 
-	 */ 
-	struct thread *cur = thread_current();
-	struct file *running_file = cur->running_file;
+	// struct thread *cur = thread_current();
+	// struct file *running_file = cur->running_file;
 	// if (running_file != NULL){
 	// 	file_allow_write(running_file);
 	// 	file_close(running_file);
