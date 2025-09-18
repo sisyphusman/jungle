@@ -99,6 +99,8 @@ struct thread {
 	struct lock *waiting_lock;
 	struct list held_locks;
 
+	struct file *running_file;
+
 	
 	int64_t wake_up_time;               /* Time to wake up. */
 

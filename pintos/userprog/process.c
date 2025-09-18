@@ -321,6 +321,7 @@ process_wait (tid_t child_tid) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current();
+	file_close(curr->running_file);
 
 	for(int fd =2 ; fd < FDT_SIZE; fd++){
 		if(curr->fdt[fd] != NULL){
@@ -336,7 +337,6 @@ process_exit (void) {
 	//printf("process_exit ");
 	//curr->exit_status = 0;
 
-	
 	sema_up(&curr->wait_sema); // 세마 up 하고 좀비 프로세스가 됨
  	sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
 	process_cleanup ();
@@ -491,6 +491,9 @@ load (const char *file_name, struct intr_frame *if_) { //커널 모드에서 유
 		goto done;
 	}
 
+	file_deny_write(file);
+	t->running_file = file;
+
 	/* Read and verify executable header. */ //읽으면서 살행가능한지 확인
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -629,7 +632,8 @@ load (const char *file_name, struct intr_frame *if_) { //커널 모드에서 유
 done:
 	/* We arrive here whether the load is successful or not. */
 	palloc_free_page(fn_copy);
-	file_close(file);
+
+	if(!success) file_close(file);
 	return success;
 }
 

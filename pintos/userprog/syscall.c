@@ -87,6 +87,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_SEEK:
+		seek((int)f->R.rdi, (unsigned)f->R.rsi);
 		break;
 	case SYS_TELL:
 		break;
@@ -127,6 +128,10 @@ int write (int fd, const void *buffer, unsigned size){
 		}
 
 		int bytes_written = file_write(target_file, buffer,size);
+
+		if(bytes_written == -1){
+			bytes_written = 0;
+		}
 
 		return bytes_written;
 
@@ -303,29 +308,20 @@ get_safe_buffer(void * buffer, unsigned size){
 }
 
 
+void
+seek (int fd, unsigned position) {
 
-// int exec (const char *cmd_line){
-// 	char *fn_copy;
-// 	tid_t tid;
+	if(fd < 2 || fd >= FDT_SIZE){
+		exit(-1);
+	}
 
-// 	char command_copy[128];
-// 	char *program_command;
-// 	char *str_point;
-	
-// 	strlcpy(command_copy, cmd_line, sizeof(command_copy));
-// 	program_command = strtok_r(command_copy, " ", &str_point);
+	struct thread *t = thread_current();
 
-// 	/* Make a copy of FILE_NAME.
-// 	 * Otherwise there's a race between the caller and load(). */
-// 	fn_copy = palloc_get_page (0);
-// 	if (fn_copy == NULL)
-// 		return TID_ERROR;
-// 	strlcpy (fn_copy, cmd_line, PGSIZE);
-
-// 	/* Create a new thread to execute FILE_NAME. */
-// 	if (tid == TID_ERROR)
-// 		palloc_free_page (fn_copy);
-
-
-// 	return tid;
-// }
+	struct file *targetfile = t->fdt[fd];
+	if(targetfile == NULL){
+		exit(-1);
+	}
+	lock_acquire(&filesys_lock);
+	file_seek(targetfile,position);
+	lock_release(&filesys_lock);
+}

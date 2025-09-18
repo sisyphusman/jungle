@@ -9,6 +9,7 @@
     "type_traits": "c",
     "utility": "c",
     "synch.h": "c",
-    "gdt.h": "c"
+    "gdt.h": "c",
+    "*.inc": "c"
   }
 }
