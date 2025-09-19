@@ -230,6 +230,7 @@ pid_t sys_wait(pid_t child_tid){
 
 
 pid_t sys_fork(const char *thread_name) {  
+	printf("현재 fork주체의 tid = %d\n",(int) thread_current()->tid);
 	tid_t child_tid = process_fork(thread_name, &thread_current()->tf);
 	return (child_tid < 0) ? -1 : child_tid;
 }
@@ -328,19 +329,17 @@ void sys_exit(int status){
 	cur->exit_status = status;
 	printf("%s: exit(%d)\n", cur->name, status);
 
-	if (cur->parent != NULL){
-		if (cur->running_file){
+	if (cur->running_file){
 			file_allow_write(cur->running_file);
 			file_close(cur->running_file);
 			cur->running_file = NULL;
-		}
-
-		sema_up(&cur->wait_sema);  // 꺠우고 ()
-		if (cur->is_waited){
-			sema_down(&cur->exit_sema);
-		}
 	}
-	
+
+	if (cur->parent != NULL && cur->is_waited){
+		sema_up(&cur->wait_sema);  // 꺠우고 ()
+		sema_down(&cur->exit_sema);
+	}
+
 	thread_exit();
 }
 

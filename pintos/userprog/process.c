@@ -101,10 +101,10 @@ tid_t process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	// 3. thead_create() 호출 (전달할 데이터 전달하기)
 	tid_t tid = thread_create (name, PRI_DEFAULT, __do_fork, (void *) args);
 
-	// 현재 프로세스의 부모가 기다리고 있을 경우 깨워주기 
-	if (parent->parent && parent->is_waited){	
-		sema_up(&(parent->parent->exit_sema));
-	}
+	// // 현재 프로세스의 부모가 기다리고 있을 경우 깨워주기 
+	// if (parent->parent && parent->is_waited){	
+	// 	sema_up(&(parent->parent->exit_sema));
+	// }
 
 	// 4. 자식 신호 대기
 	sema_down(&parent->fork_sema);
@@ -459,15 +459,25 @@ int process_wait (tid_t child_tid UNUSED) {
 		return -1;
 	}
 	
-	child->is_waited = true;
+	// 부모 프로세스가 기다리고 있으면 깨워주기
+	struct thread *cur = thread_current();
+	struct thread *parent = cur->parent;
+	if (parent && parent->is_waited) {
+		sema_up(&cur->wait_sema);
+		cur->exit_status = 0;
+		sema_down(&cur->exit_sema);
+	}
 
+	child->is_waited = true;
+	
 	// 2. 자식 종료까지 대기 
 	sema_down(&child->wait_sema);
 	child->is_waited = false;
 
 	int status = child->exit_status;
-	list_remove(&child->child_elem);
-	
+	if (status < 0) {
+		list_remove(&child->child_elem);
+	}
 	// 자식 스레드 깨우기 
 	sema_up(&child->exit_sema);
 	return status;
@@ -509,8 +519,6 @@ void process_exit (void) {
 	// 	file_close(running_file);
 	// 	cur->running_file = NULL;
 	// }
-
-
 	process_cleanup ();
 }
 

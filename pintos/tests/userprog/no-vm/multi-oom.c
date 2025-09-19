@@ -119,7 +119,9 @@ make_children (void) {
     printf("테스트 중 i = %d\n", i);
     if (i > EXPECTED_DEPTH_TO_PASS/2) {
       snprintf (child_name, sizeof child_name, "%s_%d_%s", "child", i, "X");
+      printf("5이상인 i 전용 로직에서 fork 전 pid = %d\n", pid);
       pid = fork(child_name);
+      printf("5이상인 i 전용 로직에서 fork 후 pid = %d\n", pid);
       if (pid > 0 && wait (pid) != -1) {
         fail ("crashed child should return -1.");
       } else if (pid == 0) {
@@ -130,19 +132,20 @@ make_children (void) {
 
     snprintf (child_name, sizeof child_name, "%s_%d_%s", "child", i, "O");
     pid = fork(child_name);
-    printf("테스트 중 2 i = %d\n", i);
+    printf("공통 로직 전 i = %d\n", i);
+    printf("공통 로직 전 pid = %d\n", pid);
     if (pid < 0) {
       exit (i);
     } else if (pid == 0) {
+      printf("공통 로직 : 자식 사망");
       consume_some_resources();
     } else {
-      printf("부모는 종료함\n");
+      printf("부모는 첫 for문 종료하고, ");
       break;
     }
-    
   }
 
-  printf("부모가 wait 전 pid = %d\n", pid);
+  printf("부모가 자식(pid = %d)을 기다립니다.\n", pid);
   int depth = wait (pid);
   printf("depth 확인 전 pid 뭔데 : %d\n", pid);
   printf("depth 뭔데 : %d\n", depth); // -1 반환 
