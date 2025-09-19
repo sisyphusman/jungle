@@ -197,7 +197,7 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	struct thread *current = thread_current ();
 	struct intr_frame parent_if = fork_args->parent_intr_f;
 
-	current->parent = parent;
+	//current->parent = parent;
 
 	bool succ = true;
 
@@ -248,7 +248,7 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 		}
 	}
 
-	current->next_fd = parent->next_fd + 1;
+	current->next_fd = parent->next_fd;
 
 	process_init ();
 	// 6. 부모 깨우기 

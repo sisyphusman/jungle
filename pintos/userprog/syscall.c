@@ -448,7 +448,7 @@ void validate_user_buffer(const void *buf, size_t size) {
 void validate_fd(int fd) {
 	// TODO: Your implementation goes here.
 	const struct thread *cur = thread_current();	
-	if (fd < 0 || fd > 126) {
+	if (fd < 0 || fd > 512) {
 		sys_exit(-1);
 	}
 	// if (cur->fd_table[fd] == NULL) {
