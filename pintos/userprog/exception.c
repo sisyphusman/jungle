@@ -141,11 +141,6 @@ page_fault (struct intr_frame *f) {
 	write = (f->error_code & PF_W) != 0;
 	user = (f->error_code & PF_U) != 0;
 
-	if (user) {
-		sys_exit(-1);
-		return;
-	} 
-
 #ifdef VM
 	/* For project 3 and later. */
 	if (vm_try_handle_fault (f, fault_addr, user, write, not_present))
@@ -161,6 +156,18 @@ page_fault (struct intr_frame *f) {
 			not_present ? "not present" : "rights violation",
 			write ? "writing" : "reading",
 			user ? "user" : "kernel");
+
+	if (fault_addr == (void *)NULL){
+		sys_exit(-1);
+		return;
+	}
+
+	// case 2. 유저가 커널 영역 읽기, 쓰기 금지 처리 
+	if (user && is_kern_pte((uint64_t *)fault_addr)) {
+		sys_exit(-1);
+		return;
+	} 
+
 	kill (f);
 }
 

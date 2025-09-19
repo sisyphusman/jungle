@@ -107,7 +107,7 @@ tid_t process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	// 5. 깬 뒤 메모리 정리 
 	palloc_free_page (args);
 
-	// fork 했는데 자식이 뭔가 실패해서 자원 회수당한 경우 
+	// 추가 : fork 했는데 자식이 뭔가 실패해서 자원 회수당한 경우 
 	if (tid == TID_ERROR || find_child_thread_by_tid(tid) == NULL){
 		return TID_ERROR;
 	}
