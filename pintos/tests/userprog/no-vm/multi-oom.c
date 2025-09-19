@@ -115,7 +115,8 @@ make_children (void) {
   int pid;
   char child_name[128];
   for (; ; random_init (i), i++) {
-    printf("테스트 중 i = %d", i);
+    printf("현재 pid = %d\n", pid);
+    printf("테스트 중 i = %d\n", i);
     if (i > EXPECTED_DEPTH_TO_PASS/2) {
       snprintf (child_name, sizeof child_name, "%s_%d_%s", "child", i, "X");
       pid = fork(child_name);
@@ -129,16 +130,22 @@ make_children (void) {
 
     snprintf (child_name, sizeof child_name, "%s_%d_%s", "child", i, "O");
     pid = fork(child_name);
+    printf("테스트 중 2 i = %d\n", i);
     if (pid < 0) {
       exit (i);
     } else if (pid == 0) {
       consume_some_resources();
     } else {
+      printf("부모는 종료함\n");
       break;
     }
+    
   }
 
+  printf("부모가 wait 전 pid = %d\n", pid);
   int depth = wait (pid);
+  printf("depth 확인 전 pid 뭔데 : %d\n", pid);
+  printf("depth 뭔데 : %d\n", depth); // -1 반환 
   if (depth < 0)
 	  fail ("Should return > 0.");
 

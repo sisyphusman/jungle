@@ -157,7 +157,21 @@ page_fault (struct intr_frame *f) {
 			write ? "writing" : "reading",
 			user ? "user" : "kernel");
 
+	struct thread *cur = thread_current();
+	if (cur->parent && cur->is_waited) {
+		sema_up(&cur->wait_sema);
+		cur->exit_status = -1;
+		sema_down(&cur->exit_sema);
+		printf("예외에서 잠들다\n");
+	}
+	printf("예외 처리난 자식의 tid = %d\n", cur->tid);
+	
 	if (fault_addr == (void *)NULL){
+		sys_exit(-1);
+		return;
+	}
+
+	if (not_present){
 		sys_exit(-1);
 		return;
 	}

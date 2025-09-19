@@ -100,7 +100,6 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 		}
 			
-
 		case SYS_EXEC:{
 			char *command_line = (char *) f->R.rdi;
 			tid_t reuslt = sys_exec(command_line);
@@ -110,16 +109,12 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 		}
 
-			
-
 		case SYS_WAIT:{
-			// int wait (pid_t pid) 
 			pid_t child_pid = (pid_t) f->R.rdi;
 			f->R.rax = sys_wait(child_pid);
 			break;
 		}
 			
-
 		case SYS_CREATE: {
 			const char *file = (const char *) f->R.rdi;
 			unsigned initial_size = (int) f->R.rsi;

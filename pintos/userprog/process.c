@@ -101,6 +101,11 @@ tid_t process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	// 3. thead_create() 호출 (전달할 데이터 전달하기)
 	tid_t tid = thread_create (name, PRI_DEFAULT, __do_fork, (void *) args);
 
+	// 현재 프로세스의 부모가 기다리고 있을 경우 깨워주기 
+	if (parent->parent && parent->is_waited){	
+		sema_up(&(parent->parent->exit_sema));
+	}
+
 	// 4. 자식 신호 대기
 	sema_down(&parent->fork_sema);
 
