@@ -90,9 +90,6 @@ initd (void *f_name) {
 tid_t process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
 	struct thread *parent = thread_current ();
-	// if (parent->next_fd < 10) {
-		
-	// }
 
 	// 1. 메모리 할당 
 	struct fork_args *args = palloc_get_page (0);
@@ -198,10 +195,8 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	struct intr_frame parent_if = fork_args->parent_intr_f;
 
 	//current->parent = parent;
-
 	bool succ = true;
 
-	/* 1. Read the cpu context to local stack. */
 	// 2. 부모의 CPU 레지스터(유저 컨텍스트) 복사 
 	memcpy (&if_, &parent_if, sizeof (struct intr_frame));
 	current->tf = if_;
@@ -253,11 +248,13 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	process_init ();
 	// 6. 부모 깨우기 
 	sema_up(&parent->fork_sema);
-	// 7. 성공 시 rax 0세팅 + do_iret
-	if (succ) {
-		current->tf.R.rax = 0;
-		do_iret (&current->tf);
-	}
+	// 7. 성공 시 rax 0세팅 + do_iret, 실패 시 에러로 goto
+	if (!succ) {
+		goto error;
+	} 
+	
+	current->tf.R.rax = 0;
+	do_iret (&current->tf);
 		
 error:
 	thread_exit ();
@@ -503,6 +500,8 @@ void process_exit (void) {
 	// 	file_close(running_file);
 	// 	cur->running_file = NULL;
 	// }
+	
+
 	process_cleanup ();
 }
 

@@ -289,8 +289,10 @@ int sys_read (int fd, void *buffer, unsigned size) {
  * FD는 포인터 주소만 -> 이중 포인터
  */
 int sys_open_file(const char *file){
-	
-	validate_addr(file);
+	if (file == NULL || !(is_user_vaddr(file)) || pml4_get_page(thread_current()->pml4, file) == NULL) {
+		return -1;
+	}
+	// validate_addr(file);
 	char *kernel_file = palloc_get_page(0);
 	if (kernel_file == NULL){
 		return -1;
