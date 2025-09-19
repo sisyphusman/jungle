@@ -35,7 +35,7 @@ static void *push(struct intr_frame *interrupt_frame, const void *src, size_t n)
 static void align_stack(struct intr_frame *interrupt_frame);
 static void build_stack(struct intr_frame *interrupt_frame, char *argv[], int argc);
 static struct thread *find_child_thread_by_tid(tid_t child_tid);
-static int syscall_exec(char *command_line);
+static tid_t syscall_exec(char *command_line);
 
 
 /* General process initializer for initd and other process. */
@@ -311,8 +311,6 @@ int process_exec (void *f_name) {
 	NOT_REACHED ();
 }
 
-
-//
 tid_t syscall_process_execute (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
@@ -335,7 +333,7 @@ tid_t syscall_process_execute (const char *file_name) {
 	return tid;
 }
 
-int syscall_exec(char *command_line){
+tid_t syscall_exec(char *command_line){
 	struct thread *cur = thread_current();
 	struct intr_frame _if;
 	bool success;
@@ -357,7 +355,7 @@ int syscall_exec(char *command_line){
 	palloc_free_page (command_line);
 	do_iret (&_if);
 	NOT_REACHED ();
-	return -1;
+	return TID_ERROR;
 }
 
 

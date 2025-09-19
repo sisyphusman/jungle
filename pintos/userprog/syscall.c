@@ -205,20 +205,23 @@ void syscall_handler (struct intr_frame *f UNUSED) {
  */ 
 tid_t sys_exec(char *command_line){
 	// command_line은 유저 포인터니까 커널 포인터로 변경 (init에서 했던 것 처럼)
-	validate_user_vaddr(command_line);
+	if (validate_user_vaddr(command_line) == false){
+		return TID_ERROR;
+	}
 	tid_t tid = syscall_process_execute(command_line);
 	if (tid < 0){
 		//thread_current()->exit_status = -1;
-		sys_exit(-1);
+		return TID_ERROR;
 	}
 	return tid;
 }
 
 // 유저 가상주소인지 + 실제 매핑되어 있는지 검증 
-void validate_user_vaddr(const void *addr) {
+bool validate_user_vaddr(const void *addr) {
 	if (addr == NULL || !(is_user_vaddr(addr)) || pml4_get_page(thread_current()->pml4, addr) == NULL) {
-		sys_exit(-1);
+		return false;
 	}
+	return true;
 }
 
 

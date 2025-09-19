@@ -49,6 +49,16 @@ consume_some_resources (void)
 	 the kernel, open() may fail if the kernel is low on memory.
 	 A low-memory condition in open() should not lead to the
 	 termination of the process.  */
+  /**
+   * 가능한 많은 파일들을 열돼 
+   * 커널 내부에서 파일 디스크립터가 어떻게 할당되는지에 따라, open()이 실패할 수도 있다
+   * ex. 테이블 크기, 내부 자료구조, 메모리 부족 등
+   * open()에서 low-memory(메모리 부족) 상황이 발생하더라도, 그 자체가 프로세스 종료로 이어지면 안 된다
+   * 즉, open실패가 단순히 open() 호출이 실패한 것으로 처리해야 한다는 말
+   * 목적
+   * 1. 커널이 많은 수의 파일을 열 수 있도록 허용하는지
+   * 2. 만약 자원 부족으로 커널 open()이 실패해도 그걸 정상적인 동작으로 간주하고 프로세스를 살리는지 
+   */
   for (fd = 0; fd < fdmax; fd++) {
 #ifdef EXTRA2
 	  if (fd != 0 && (random_ulong () & 1)) {
@@ -105,6 +115,7 @@ make_children (void) {
   int pid;
   char child_name[128];
   for (; ; random_init (i), i++) {
+    printf("테스트 중 i = %d", i);
     if (i > EXPECTED_DEPTH_TO_PASS/2) {
       snprintf (child_name, sizeof child_name, "%s_%d_%s", "child", i, "X");
       pid = fork(child_name);
