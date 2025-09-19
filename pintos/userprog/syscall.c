@@ -104,7 +104,10 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_EXEC:{
 			// int exec (const char *file) 
 			char *command_line = (char *) f->R.rdi;
-			sys_exec(command_line);
+			tid_t reuslt = sys_exec(command_line);
+			if (reuslt == TID_ERROR){
+				f->R.rax = reuslt;
+			}
 			break;
 		}
 
@@ -212,7 +215,7 @@ tid_t sys_exec(char *command_line){
 	if (tid < 0){
 		//thread_current()->exit_status = -1;
 		return TID_ERROR;
-	}
+	} 
 	return tid;
 }
 
