@@ -44,7 +44,7 @@ static struct file *find_file_by_fd(int fd);
 struct fd_table_entry *find_file_entry_by_fd(int fd);
 static void validate_user_buffer(const void *buf, size_t size);
 static void validate_fd(int fd);
-static void validate_user_vaddr(const void *addr);
+static bool validate_user_vaddr(const void *addr);
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -102,7 +102,6 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 			
 
 		case SYS_EXEC:{
-			// int exec (const char *file) 
 			char *command_line = (char *) f->R.rdi;
 			tid_t reuslt = sys_exec(command_line);
 			if (reuslt == TID_ERROR){
