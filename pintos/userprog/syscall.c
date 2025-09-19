@@ -208,11 +208,12 @@ void syscall_handler (struct intr_frame *f UNUSED) {
 tid_t sys_exec(char *command_line){
 	// command_line은 유저 포인터니까 커널 포인터로 변경 (init에서 했던 것 처럼)
 	if (validate_user_vaddr(command_line) == false){
+		thread_current()->exit_status = -1;
 		return TID_ERROR;
 	}
 	tid_t tid = syscall_process_execute(command_line);
 	if (tid < 0){
-		//thread_current()->exit_status = -1;
+		thread_current()->exit_status = -1;
 		return TID_ERROR;
 	} 
 	return tid;

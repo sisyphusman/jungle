@@ -106,9 +106,12 @@ tid_t process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 
 	// 5. 깬 뒤 메모리 정리 
 	palloc_free_page (args);
-	if (tid == TID_ERROR){
+
+	// fork 했는데 자식이 뭔가 실패해서 자원 회수당한 경우 
+	if (tid == TID_ERROR || find_child_thread_by_tid(tid) == NULL){
 		return TID_ERROR;
 	}
+	
 	return tid;
 }
 
@@ -257,6 +260,7 @@ static bool duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	do_iret (&current->tf);
 		
 error:
+
 	thread_exit ();
 }
 
@@ -500,7 +504,7 @@ void process_exit (void) {
 	// 	file_close(running_file);
 	// 	cur->running_file = NULL;
 	// }
-	
+
 
 	process_cleanup ();
 }
