@@ -1,6 +1,4 @@
 exec-bad-ptr PASS
-sm-full PASS
-rox-simple PASS
 fork-multiple PASS
 args-dbl-space PASS
 read-bad-fd PASS
@@ -14,8 +12,8 @@ create-normal PASS
 priority-donate-lower PASS
 bad-write PASS
 open-twice PASS
-exec-arg PASS
 exec-missing PASS
+exec-arg PASS
 read-bad-ptr PASS
 create-long PASS
 priority-preempt PASS
@@ -43,12 +41,9 @@ close-twice PASS
 args-none PASS
 create-bad-ptr PASS
 read-stdout PASS
-priority-fifo PASS
 wait-bad-pid PASS
-lg-create PASS
 exec-read PASS
 read-boundary PASS
-priority-sema PASS
 wait-twice PASS
 exec-boundary PASS
 close-normal PASS
@@ -68,14 +63,11 @@ fork-once PASS
 priority-change PASS
 write-boundary PASS
 wait-killed PASS
-lg-full PASS
 close-bad-fd PASS
 alarm-negative PASS
 multi-child-fd PASS
 exit PASS
 write-bad-ptr PASS
-priority-donate-sema PASS
-lg-seq-block PASS
 wait-simple PASS
 exec-once PASS
 args-many PASS
