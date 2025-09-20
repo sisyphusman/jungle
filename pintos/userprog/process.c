@@ -235,10 +235,10 @@ error:
 	thread_exit ();
 fork_end:
 	parent->fork_success = succ;
-
 	sema_up(&parent->fork_sema);
 
 	if(!succ){
+		current->is_wrong = 1;
 		thread_exit();
 	}
 
@@ -338,7 +338,7 @@ process_exit (void) {
 	//printf("process_exit ");
 
 	sema_up(&curr->wait_sema); // 세마 up 하고 좀비 프로세스가 됨
- 	sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
+ 	if(curr->is_wrong != 1) sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
 	process_cleanup ();
 
 

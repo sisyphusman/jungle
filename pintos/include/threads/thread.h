@@ -113,7 +113,6 @@ struct thread {
 	struct list children_list;
 
 
-	int exit_status;
 
 
 
@@ -123,6 +122,9 @@ struct thread {
 	struct file *fdt[FDT_SIZE];
 	struct semaphore wait_sema;
 	struct semaphore exit_sema;
+	
+	int exit_status;
+	int is_wrong;
 
 
 
