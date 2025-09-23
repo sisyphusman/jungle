@@ -50,7 +50,7 @@ Pintos 테스트 프레임워크를 이용해서 자동으로 특정 테스트�
 
 2. PROJECT 2 - USER PROGRAMS  
 
-   ❓ Project 2 : Argument Passing  
-   ❓ Project 2 : System Call  
-   ❓ Project 2 : File Descriptor   
-   ❓ Project 2 : Hierarchical Process Structure   
+   ✅ Project 2 : Argument Passing  
+   ✅ Project 2 : System Call  
+   ✅ Project 2 : File Descriptor   
+   ✅ Project 2 : Hierarchical Process Structure   
