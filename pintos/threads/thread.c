@@ -10,6 +10,7 @@
 #include "threads/palloc.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/loader.h"
 #include "intrinsic.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -27,6 +28,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+//static struct list all_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -193,7 +195,7 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
 
-	/* Call the kernel_thread if it scheduled.
+	/* Call the kernel_thread if it scheduled. //t의 커널 위치 계산 
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
 	t->tf.rip = (uintptr_t) kernel_thread;
 	t->tf.R.rdi = (uint64_t) function;
@@ -203,7 +205,9 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
-
+	
+	//printf("thread_create");
+	list_push_back(&thread_current()->children_list, &t->children_elem); 
 	/* Add to run queue. */
 	thread_unblock (t);
 
@@ -458,11 +462,22 @@ init_thread (struct thread *t, const char *name, int priority) {
 	list_init(&t->donators); // donators 추가 
 	list_init(&t->held_locks); 
 
+	#ifdef USERPROG
+	sema_init(&t->wait_sema, 0);
+	sema_init(&t->exit_sema, 0);
+	sema_init(&t->fork_sema,0);
+	list_init(&t->children_list);
+	
+
+	#endif
+
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
 	t->eff_priority = priority;
+	t->exit_status = 0;
+	t->is_wrong =0;
 	t->magic = THREAD_MAGIC;
 }
 
@@ -642,4 +657,53 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+// struct thread *
+// find_thread_with_tid(tid_t child_tid){
+		
+// 		struct list_elem *e = list_begin(&all_list);
+
+// 		while(e != list_end(&all_list)){
+// 			struct thread *t  = list_entry(e, struct thread, all_elem);
+// 			struct list_elem *next = list_next(e);
+
+// 			if(t->tid == child_tid){
+// 				return t;
+				
+// 			}
+
+// 			e = next;
+
+// 		}
+
+// 	return NULL;
+		
+
+// }
+
+
+
+struct thread *
+find_tid_in_children(tid_t child_tid){
+		
+		struct list_elem *e = list_begin(&thread_current()->children_list);
+
+		while(e != list_end(&thread_current()->children_list)){
+			struct thread *t  = list_entry(e, struct thread, children_elem);
+			struct list_elem *next = list_next(e);
+			//printf("find_tid_in_children");
+			printf("");
+			if(t->tid == child_tid){
+				return t;
+				
+			}
+
+			e = next;
+
+		}
+
+	return NULL;
+		
+
 }

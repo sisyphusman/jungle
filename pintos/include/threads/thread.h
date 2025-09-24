@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h" 
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -27,6 +28,8 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+#define FDT_SIZE 32
 
 /* A kernel thread or user process.
  *
@@ -95,6 +98,9 @@ struct thread {
 	struct list donators;
 	struct lock *waiting_lock;
 	struct list held_locks;
+
+	struct file *running_file;
+
 	
 	int64_t wake_up_time;               /* Time to wake up. */
 
@@ -102,12 +108,32 @@ struct thread {
 	struct list_elem elem;              /* ready List element. */
 	struct list_elem sleep_elem;        /* sleep List element. */
 	struct list_elem donate_elem;
+	//struct list_elem all_elem;
+	struct list_elem children_elem;
+	struct list children_list;
 
 
 
-#ifdef USERPROG
+
+
+ #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
+	struct file *fdt[FDT_SIZE];
+	struct semaphore wait_sema;
+	struct semaphore exit_sema;
+	
+	int exit_status;
+	int is_wrong;
+
+
+
+	//---For Fork ---//
+	//struct thread *parent;
+	struct semaphore fork_sema;
+	bool fork_success;
+	struct intr_frame *parent_if;
+	/* Owned by userprog/process.c. */
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
@@ -154,5 +180,8 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
+
+struct thread * find_thread_with_tid(tid_t child_tid);
+struct thread *find_tid_in_children(tid_t child_tid);
 
 #endif /* threads/thread.h */
