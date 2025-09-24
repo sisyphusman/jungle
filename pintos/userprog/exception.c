@@ -5,7 +5,6 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "intrinsic.h"
-#include "userprog/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -156,32 +155,6 @@ page_fault (struct intr_frame *f) {
 			not_present ? "not present" : "rights violation",
 			write ? "writing" : "reading",
 			user ? "user" : "kernel");
-
-	struct thread *cur = thread_current();
-	if (cur->parent && cur->is_waited) {
-		sema_up(&cur->wait_sema);
-		cur->exit_status = -1;
-		sema_down(&cur->exit_sema);
-		printf("예외에서 잠들다\n");
-	}
-	printf("예외 처리난 자식의 tid = %d\n", cur->tid);
-	
-	if (fault_addr == (void *)NULL){
-		sys_exit(-1);
-		return;
-	}
-
-	if (not_present){
-		sys_exit(-1);
-		return;
-	}
-
-	// case 2. 유저가 커널 영역 읽기, 쓰기 금지 처리 
-	if (user && is_kern_pte((uint64_t *)fault_addr)) {
-		sys_exit(-1);
-		return;
-	} 
-
 	kill (f);
 }
 

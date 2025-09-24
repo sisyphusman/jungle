@@ -204,9 +204,6 @@ tid_t thread_create (const char *name, int priority, thread_func *function, void
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	t->parent = thread_current ();
-	list_push_back(&thread_current()->children, &t->child_elem);
-
 	/* Add to run queue. */
 	thread_unblock (t);
 
@@ -284,7 +281,8 @@ thread_tid (void) {
 
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
-void thread_exit (void) {
+void
+thread_exit (void) {
 	ASSERT (!intr_context ());
 
 #ifdef USERPROG
@@ -459,22 +457,12 @@ init_thread (struct thread *t, const char *name, int priority) {
 	memset (t, 0, sizeof *t);
 	list_init(&t->donators); // donators 추가 
 	list_init(&t->held_locks); 
-	list_init(&t->children);
-	list_init(&t->fd_table);
 
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
 	t->eff_priority = priority;
-	t->exit_status = 0;
-	t->next_fd = 2;
-	t->is_waited = false;
-	t->running_file = NULL;
-	
-	sema_init(&t->wait_sema, 0);
-	sema_init(&t->exit_sema, 0);
-	sema_init(&t->fork_sema, 0);
 	t->magic = THREAD_MAGIC;
 }
 
