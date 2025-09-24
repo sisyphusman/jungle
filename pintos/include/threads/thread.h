@@ -124,7 +124,7 @@ struct thread {
 	struct semaphore exit_sema;
 	
 	int exit_status;
-	int is_wrong;
+
 
 
 

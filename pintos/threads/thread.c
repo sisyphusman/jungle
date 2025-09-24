@@ -477,7 +477,6 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->priority = priority;
 	t->eff_priority = priority;
 	t->exit_status = 0;
-	t->is_wrong =0;
 	t->magic = THREAD_MAGIC;
 }
 
