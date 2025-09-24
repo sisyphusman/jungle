@@ -104,10 +104,12 @@ process_fork (const char *name, struct intr_frame *if_ ) {
 	if(child_tid == TID_ERROR){
 		return TID_ERROR;
 	}
-
+	struct thread *child = find_tid_in_children(child_tid);
 	sema_down(&parent_thread->fork_sema);
 
 	if(!parent_thread->fork_success){
+		list_remove(&child->children_elem);
+		sema_up(&child->exit_sema);
 		return TID_ERROR;
 	}
 	
@@ -238,7 +240,7 @@ fork_end:
 	sema_up(&parent->fork_sema);
 
 	if(!succ){
-		current->is_wrong = 1;
+		//current->is_wrong = 1;
 		thread_exit();
 	}
 
@@ -338,9 +340,8 @@ process_exit (void) {
 	//printf("process_exit ");
 
 	sema_up(&curr->wait_sema); // 세마 up 하고 좀비 프로세스가 됨
- 	if(curr->is_wrong != 1) sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
+ 	sema_down(&curr->exit_sema); //그 뒤에 BLOCK되서 커널이 깨워줘야 함 
 	process_cleanup ();
-
 
 	
 }
