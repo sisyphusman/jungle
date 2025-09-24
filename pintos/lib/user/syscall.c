@@ -90,7 +90,8 @@ exec (const char *file) {
 	return (pid_t) syscall1 (SYS_EXEC, file);
 }
 
-int wait (pid_t pid) {
+int
+wait (pid_t pid) {
 	return syscall1 (SYS_WAIT, pid);
 }
 
@@ -104,7 +105,6 @@ remove (const char *file) {
 	return syscall1 (SYS_REMOVE, file);
 }
 
-
 int
 open (const char *file) {
 	return syscall1 (SYS_OPEN, file);
@@ -114,7 +114,6 @@ int
 filesize (int fd) {
 	return syscall1 (SYS_FILESIZE, fd);
 }
-
 
 int
 read (int fd, void *buffer, unsigned size) {
