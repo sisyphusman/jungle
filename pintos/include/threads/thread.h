@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -103,21 +104,49 @@ struct thread {
 	struct list_elem sleep_elem;        /* sleep List element. */
 	struct list_elem donate_elem;
 
-
-
+	
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
+	//struct sempaphore_elem *wait_elem;
+	struct thread *parent;
+	struct list children;
+	struct list_elem child_elem;
+	struct semaphore wait_sema;
+	struct semaphore exit_sema;
+	struct semaphore fork_sema;
+	int exit_status; // 0 = 정상 종료 1 = 의도된 비정상 종료 -1 = 커널에 의한 비정상 종료 
 	uint64_t *pml4;                     /* Page map level 4 */
+	struct list fd_table;
+	// struct file *fd_table[256];
+	int next_fd;
+	bool is_waited;
+	struct file *running_file;
+	
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
 #endif
-
 	/* Owned by thread.c. */
 	struct intr_frame tf;               /* Information for switching */
+	// 주의 : tf 는 유저 레벨의 레지스터 세트가 아니라 커널 스케쥴러가 쓰는 스위치용 컨텍스트 
 	unsigned magic;                     /* Detects stack overflow. */
 };
+
+#ifdef USERPROG
+struct fd_table_entry
+{
+	int fd;
+	struct file *file;
+	struct list_elem elem;
+};
+
+struct fork_args
+{
+	struct thread *parent;
+	struct intr_frame parent_intr_f;
+};
+#endif
 
 
 /* If false (default), use round-robin scheduler.

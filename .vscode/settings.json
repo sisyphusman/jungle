@@ -8,6 +8,18 @@
     "tuple": "c",
     "type_traits": "c",
     "utility": "c",
-    "synch.h": "c"
+    "synch.h": "c",
+    "*.inc": "c",
+    "string_view": "c",
+    "lib.h": "c",
+    "init.h": "c",
+    "file.h": "c",
+    "off_t.h": "c",
+    "atomic": "c",
+    "cstdlib": "c",
+    "intrinsic.h": "c",
+    "filesys.h": "c",
+    "syscall.h": "c",
+    "main.h": "c"
   }
 }
