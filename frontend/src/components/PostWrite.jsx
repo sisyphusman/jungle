@@ -20,6 +20,14 @@ export default function PostWrite({ token }) {
         body: JSON.stringify({ title, body }),
       })
       if (!res.ok) {
+        if (res.status === 401) {
+          // 토큰 만료 or 사용자 삭제 등으로 사용자 조회 실패
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          alert('로그인이 만료되었거나 사용자 정보가 없습니다. 다시 로그인해 주세요.')
+          window.location.hash = '#/'
+          return
+        }
         const msg = await res.text()
         throw new Error(msg || '글 작성 실패')
       }

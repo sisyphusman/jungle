@@ -29,9 +29,6 @@ async def on_startup():
     # Beanie 초기화 (모델 등록)
     await init_beanie(database=db, document_models=[Post, User, Comment])
 
-    # (선택) 지오쿼리 쓸 계획이면 2dsphere 인덱스 생성
-    await db["posts"].create_index([("location", "2dsphere")])
-
 @app.get("/health")
 async def health():
     return {"status": "ok"}

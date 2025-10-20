@@ -55,7 +55,6 @@ Beanie
 포인트
 
 - Motor 위에서 동작(저수준 드라이버는 Motor가 담당)
-- 모델 안에서 인덱스/지오(2dsphere) 선언 가능
 - await Post.find(...).to_list(), await doc.set({...})처럼 깔끔한 쿼리
 
 Motor

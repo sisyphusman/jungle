@@ -126,7 +126,7 @@ npm run dev
   - req: `{ title, body }`
   - res: `Post` (필드: id, title, body, author_id, author_nickname, created_at, views, comment_count)
 - GET `/api/v1/posts/`
-  - query: `page`(기본 1), `limit`(기본 10, 최대 100)
+  - query: `page`(기본 1), `limit`(기본 5, 최대 100)
   - res: `{ items: Post[], total: number, page: number, limit: number }`
 - GET `/api/v1/posts/{id}`
 
@@ -149,15 +149,8 @@ npm run dev
   - req: `{ content }`
   - res: `Comment` (필드: id, post_id, content, author_id, author_nickname, created_at)
 - DELETE `/api/v1/comments/{comment_id}` (Bearer, 작성자만)
-  - res: `{ ok: true }`
-
-## 권한
 
 - 게시글/댓글 수정·삭제는 작성자만 가능(백엔드에서 토큰의 사용자 id와 문서의 author_id 비교)
-
-## 데이터베이스 스키마
-
-MongoDB 컬렉션과 주요 필드입니다. 타입은 일반적 사용 기준이며, ObjectId는 문자열로 직렬화되어 API로 반환됩니다.
 
 1. users
 
@@ -165,32 +158,12 @@ MongoDB 컬렉션과 주요 필드입니다. 타입은 일반적 사용 기준�
 - username: string (고유)
 - email: string (고유, EmailStr)
 - hashed_password: string (bcrypt 해시)
-- nickname: string (표시용 이름)
-
-2. posts
-
-- \_id: ObjectId (문자열로 응답 시 id)
 - title: string
 - body: string
 - author_id: string (users.\_id)
-- author_nickname: string
-- created_at: datetime (UTC)
-- views: number (기본 0)
-- comment_count: number (기본 0)
-- location?: { type: "Point", coordinates: [lng, lat] }
-
-3. comments
-
-- \_id: ObjectId (문자열로 응답 시 id)
 - post_id: string (posts.\_id)
 - content: string
 - author_id: string (users.\_id)
-- author_nickname: string
-- created_at: datetime (UTC)
-
-인덱스/기타
-
-- posts.location: 2dsphere (지오쿼리용)
 - username, email은 고유(unique) 조건을 위해 애플리케이션 레벨에서 중복 체크
 
 ## 더 알아야 할 것들

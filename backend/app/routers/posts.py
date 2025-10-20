@@ -22,7 +22,7 @@ async def create_post(payload: PostCreate, current_user: User = Depends(get_curr
 @router.get("/")
 async def list_posts(
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(5, ge=1, le=100),
 ):
     skip = (page - 1) * limit
     cursor = Post.find_all().sort(-Post.created_at).skip(skip).limit(limit)
