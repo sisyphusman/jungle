@@ -7,6 +7,9 @@ function PostBoard({ user, token, onLogout }) {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [total, setTotal] = useState(0)
 
   const fetchWithAuth = async (url, options = {}) => {
     const res = await fetch(url, {
@@ -35,12 +38,14 @@ function PostBoard({ user, token, onLogout }) {
     try {
       setLoading(true)
       setError('')
-      const data = await fetch(`${apiBase}/`).then(res => res.json())
-      const normalized = (Array.isArray(data) ? data : []).map(p => ({
+      const data = await fetch(`${apiBase}/?page=${page}&limit=${limit}`).then(res => res.json())
+      const list = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []
+      const normalized = list.map(p => ({
         ...p,
         id: p.id || (p._id && (p._id.$oid || p._id)) || '',
       }))
       setPosts(normalized)
+      setTotal(data.total ?? normalized.length)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -50,7 +55,7 @@ function PostBoard({ user, token, onLogout }) {
 
   useEffect(() => {
     loadPosts()
-  }, [])
+  }, [page, limit])
 
   const handleDelete = async (postId) => {
     if (!confirm('삭제하시겠습니까?')) return
@@ -105,6 +110,37 @@ function PostBoard({ user, token, onLogout }) {
             currentUserId={user.id}
           />
         ))}
+        <div className="flex items-center justify-between pt-4">
+          <div className="text-sm text-gray-600">
+            총 {total}건 · 페이지 {page} / {Math.max(1, Math.ceil(total / limit))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-1 border rounded disabled:opacity-50"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              이전
+            </button>
+            <button
+              className="px-3 py-1 border rounded disabled:opacity-50"
+              disabled={page >= Math.ceil(total / limit) || total === 0}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              다음
+            </button>
+            <select
+              className="ml-2 border rounded px-2 py-1 text-sm"
+              value={limit}
+              onChange={(e) => { setPage(1); setLimit(Number(e.target.value) || 10) }}
+            >
+              <option value={5}>5개</option>
+              <option value={10}>10개</option>
+              <option value={20}>20개</option>
+              <option value={50}>50개</option>
+            </select>
+          </div>
+        </div>
       </div>
     </div>
   )

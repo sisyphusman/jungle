@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
+from fastapi import Query
 from app.models.post import Post, PostCreate, PostUpdate
 from app.models.user import User
 from app.routers.auth import get_current_user
@@ -18,9 +19,16 @@ async def create_post(payload: PostCreate, current_user: User = Depends(get_curr
     await doc.insert()
     return doc
 
-@router.get("/", response_model=List[Post])
-async def list_posts():
-    return await Post.find_all().to_list()
+@router.get("/")
+async def list_posts(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+):
+    skip = (page - 1) * limit
+    cursor = Post.find_all().sort(-Post.created_at).skip(skip).limit(limit)
+    items = await cursor.to_list()
+    total = await Post.find_all().count()
+    return {"items": items, "total": total, "page": page, "limit": limit}
 
 @router.get("/{post_id}", response_model=Post)
 async def get_post(post_id: str):
