@@ -1,12 +1,20 @@
-from fastapi import APIRouter, HTTPException
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends
+from typing import List, Optional
 from app.models.post import Post, PostCreate, PostUpdate
+from app.models.user import User
+from app.routers.auth import get_current_user
+from beanie import PydanticObjectId
 
 router = APIRouter(prefix="/api/v1/posts", tags=["posts"])
 
 @router.post("/", response_model=Post)
-async def create_post(payload: PostCreate):
-    doc = Post(**payload.model_dump())
+async def create_post(payload: PostCreate, current_user: User = Depends(get_current_user)):
+    # 로그인한 사용자만 글 작성 가능
+    doc = Post(
+        **payload.model_dump(exclude={"author_id", "author_nickname"}),
+        author_id=str(current_user.id),
+        author_nickname=current_user.nickname,
+    )
     await doc.insert()
     return doc
 
@@ -16,23 +24,42 @@ async def list_posts():
 
 @router.get("/{post_id}", response_model=Post)
 async def get_post(post_id: str):
+    # 잘못된 ObjectId 문자열로 인한 500 방지
+    try:
+        _ = PydanticObjectId(post_id)
+    except Exception:
+        raise HTTPException(400, "invalid post id")
     doc = await Post.get(post_id)
     if not doc:
         raise HTTPException(404, "post not found")
     return doc
 
 @router.patch("/{post_id}", response_model=Post)
-async def update_post(post_id: str, payload: PostUpdate):
+async def update_post(post_id: str, payload: PostUpdate, current_user: User = Depends(get_current_user)):
+    try:
+        _ = PydanticObjectId(post_id)
+    except Exception:
+        raise HTTPException(400, "invalid post id")
     doc = await Post.get(post_id)
     if not doc:
         raise HTTPException(404, "post not found")
+    # 작성자만 수정 가능
+    if doc.author_id != str(current_user.id):
+        raise HTTPException(403, "Not authorized to update this post")
     await doc.set(payload.model_dump(exclude_unset=True))
     return doc
 
 @router.delete("/{post_id}")
-async def delete_post(post_id: str):
+async def delete_post(post_id: str, current_user: User = Depends(get_current_user)):
+    try:
+        _ = PydanticObjectId(post_id)
+    except Exception:
+        raise HTTPException(400, "invalid post id")
     doc = await Post.get(post_id)
     if not doc:
         raise HTTPException(404, "post not found")
+    # 작성자만 삭제 가능
+    if doc.author_id != str(current_user.id):
+        raise HTTPException(403, "Not authorized to delete this post")
     await doc.delete()
     return {"ok": True}

@@ -1,4 +1,5 @@
 from typing import Optional, List
+from datetime import datetime
 from beanie import Document
 from pydantic import BaseModel, Field
 
@@ -11,7 +12,9 @@ class Post(Document):
     title: str
     body: str
     author_id: Optional[str] = None
+    author_nickname: Optional[str] = None
     location: Optional[GeoPoint] = None  # 지도 마커 저장 시 사용
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
         name = "posts"  # 컬렉션명
@@ -21,6 +24,7 @@ class PostCreate(BaseModel):
     title: str
     body: str
     author_id: Optional[str] = None
+    author_nickname: Optional[str] = None
     location: Optional[GeoPoint] = None
 
 class PostUpdate(BaseModel):

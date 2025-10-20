@@ -5,7 +5,11 @@ from beanie import init_beanie
 
 from app.core.config import settings
 from app.models.post import Post
+from app.models.comment import Comment
+from app.models.user import User
 from app.routers.posts import router as posts_router
+from app.routers.comments import router as comments_router
+from app.routers.auth import router as auth_router
 
 app = FastAPI(title="Crud API")
 
@@ -21,9 +25,9 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     client = AsyncIOMotorClient(settings.mongodb_url)
-    db = client.get_default_database()  # URL의 /curdd가 기본 DB가 됨
+    db = client.get_default_database()  # URL의 /crud가 기본 DB가 됨
     # Beanie 초기화 (모델 등록)
-    await init_beanie(database=db, document_models=[Post])
+    await init_beanie(database=db, document_models=[Post, User, Comment])
 
     # (선택) 지오쿼리 쓸 계획이면 2dsphere 인덱스 생성
     await db["posts"].create_index([("location", "2dsphere")])
@@ -33,4 +37,6 @@ async def health():
     return {"status": "ok"}
 
 # 라우터 등록
+app.include_router(auth_router)
 app.include_router(posts_router)
+app.include_router(comments_router)

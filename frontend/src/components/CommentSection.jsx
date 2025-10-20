@@ -1,0 +1,114 @@
+import { useState, useEffect } from 'react'
+
+export default function CommentSection({ postId, token, user }) {
+  const [comments, setComments] = useState([])
+  const [content, setContent] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const fetchComments = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/v1/comments/${postId}`)
+      if (!res.ok) throw new Error('댓글 불러오기 실패')
+      const data = await res.json()
+      setComments(data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchComments()
+  }, [postId])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/v1/comments/${postId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content }),
+      })
+      if (!res.ok) throw new Error('댓글 작성 실패')
+      setContent('')
+      fetchComments()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (commentId) => {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/v1/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (!res.ok) throw new Error('댓글 삭제 실패')
+      fetchComments()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-8 border-t pt-4">
+      <h3 className="font-semibold mb-2">댓글</h3>
+      {loading && <div>로딩 중...</div>}
+      {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
+      <form onSubmit={handleSubmit} className="flex gap-2 mb-3">
+        <input
+          className="flex-1 border rounded px-2 py-1"
+          placeholder="댓글을 입력하세요"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          required
+        />
+        <button className="bg-blue-600 text-white px-3 py-1 rounded" disabled={loading}>
+          작성
+        </button>
+      </form>
+      <ul className="space-y-2">
+        {comments.map((c) => (
+          <li key={c.id} className="flex items-center justify-between border-b pb-2">
+            <div className="flex-1">
+              <div>{c.content}</div>
+              <div className="text-xs text-gray-500 flex gap-3">
+                {(c.author_nickname || c.author_id) && (
+                  <span>작성자: {c.author_nickname || c.author_id}</span>
+                )}
+                {c.created_at && <span>작성일: {new Date(c.created_at).toLocaleString()}</span>}
+              </div>
+            </div>
+            {user && user.id === c.author_id && (
+              <button
+                onClick={() => handleDelete(c.id)}
+                className="text-red-600 text-xs"
+                disabled={loading}
+              >
+                삭제
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
