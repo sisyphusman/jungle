@@ -40,6 +40,13 @@ function PostBoard({ user, token, onLogout }) {
     loadPosts()
   }, [page, limit])
 
+  // 헤더 타이틀 클릭 시 1페이지로 이동
+  useEffect(() => {
+    const handler = () => setPage(1)
+    window.addEventListener('go-home', handler)
+    return () => window.removeEventListener('go-home', handler)
+  }, [])
+
   return (
     <div className="space-y-4">
       {/* 글쓰기 폼 제거: 글쓰기는 별도 페이지(#/write)에서 처리 */}
