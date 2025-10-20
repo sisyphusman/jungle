@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export default function CommentSection({ postId, token, user }) {
+export default function CommentSection({ postId, token, user, onCountChange }) {
   const [comments, setComments] = useState([])
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
@@ -13,7 +13,13 @@ export default function CommentSection({ postId, token, user }) {
       const res = await fetch(`/api/v1/comments/${postId}`)
       if (!res.ok) throw new Error('댓글 불러오기 실패')
       const data = await res.json()
-      setComments(data)
+      const normalized = (Array.isArray(data) ? data : [])
+        .map((c) => ({
+          ...c,
+          id: c.id || (c._id && (c._id.$oid || c._id)) || '',
+        }))
+        .filter((c) => !!c.id)
+      setComments(normalized)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -39,8 +45,9 @@ export default function CommentSection({ postId, token, user }) {
         body: JSON.stringify({ content }),
       })
       if (!res.ok) throw new Error('댓글 작성 실패')
-      setContent('')
-      fetchComments()
+  setContent('')
+  fetchComments()
+  if (typeof onCountChange === 'function') onCountChange(1)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -59,8 +66,12 @@ export default function CommentSection({ postId, token, user }) {
           Authorization: `Bearer ${token}`,
         },
       })
-      if (!res.ok) throw new Error('댓글 삭제 실패')
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || '댓글 삭제 실패')
+      }
       fetchComments()
+      if (typeof onCountChange === 'function') onCountChange(-1)
     } catch (err) {
       setError(err.message)
     } finally {

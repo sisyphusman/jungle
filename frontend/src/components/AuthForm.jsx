@@ -57,111 +57,60 @@ function AuthForm({ onLogin }) {
   }
 
   return (
-    <div className="mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-bold mb-6 text-center">Posts CRUD</h1>
-      
-      <div className="mb-6">
-        <div className="flex gap-2 mb-4">
+    <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4">
+      <div className="w-full rounded-xl border bg-white p-6 shadow-sm">
+        <h1 className="mb-6 text-center text-2xl font-bold">정글 자유게시판</h1>
+        <div className="mb-6 grid grid-cols-2 gap-2">
           <button
-            onClick={() => {
-              setIsLogin(true)
-              setMessage('')
-            }}
-            className={`flex-1 px-4 py-2 rounded ${
-              isLogin ? 'bg-blue-600 text-white' : 'border'
-            }`}
-          >
-            로그인
-          </button>
+            onClick={() => { setIsLogin(true); setMessage('') }}
+            className={`rounded-md px-4 py-2 text-sm ${isLogin ? 'bg-blue-600 text-white' : 'border hover:bg-gray-50'}`}
+          >로그인</button>
           <button
-            onClick={() => {
-              setIsLogin(false)
-              setMessage('')
-            }}
-            className={`flex-1 px-4 py-2 rounded ${
-              !isLogin ? 'bg-blue-600 text-white' : 'border'
-            }`}
-          >
-            회원가입
-          </button>
+            onClick={() => { setIsLogin(false); setMessage('') }}
+            className={`rounded-md px-4 py-2 text-sm ${!isLogin ? 'bg-blue-600 text-white' : 'border hover:bg-gray-50'}`}
+          >회원가입</button>
         </div>
-        
+
         {isLogin ? (
-          <form onSubmit={handleLoginSubmit} className="space-y-3 border rounded p-4">
-            <h2 className="font-semibold">로그인</h2>
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              placeholder="아이디"
-              value={loginData.username}
-              onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-              required
-            />
-            <input
-              type="password"
-              className="w-full border rounded px-3 py-2"
-              placeholder="비밀번호"
-              value={loginData.password}
-              onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-              required
-            />
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              로그인
-            </button>
+          <form onSubmit={handleLoginSubmit} className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">아이디</label>
+              <input type="text" className="w-full rounded border px-3 py-2" value={loginData.username} onChange={(e) => setLoginData({ ...loginData, username: e.target.value })} required />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">비밀번호</label>
+              <input type="password" className="w-full rounded border px-3 py-2" value={loginData.password} onChange={(e) => setLoginData({ ...loginData, password: e.target.value })} required />
+            </div>
+            <button type="submit" className="w-full rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">로그인</button>
           </form>
         ) : (
-          <form onSubmit={handleSignupSubmit} className="space-y-3 border rounded p-4">
-            <h2 className="font-semibold">회원가입</h2>
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              placeholder="아이디"
-              value={signupData.username}
-              onChange={(e) => setSignupData({ ...signupData, username: e.target.value })}
-              required
-            />
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              placeholder="닉네임"
-              value={signupData.nickname}
-              onChange={(e) => setSignupData({ ...signupData, nickname: e.target.value })}
-              required
-            />
-            <input
-              type="email"
-              className="w-full border rounded px-3 py-2"
-              placeholder="이메일"
-              value={signupData.email}
-              onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
-              required
-            />
-            <input
-              type="password"
-              className="w-full border rounded px-3 py-2"
-              placeholder="비밀번호"
-              value={signupData.password}
-              onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
-              required
-            />
-            <button
-              type="submit"
-              className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-            >
-              회원가입
-            </button>
+          <form onSubmit={handleSignupSubmit} className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">아이디</label>
+              <input type="text" className="w-full rounded border px-3 py-2" value={signupData.username} onChange={(e) => setSignupData({ ...signupData, username: e.target.value })} required />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">닉네임</label>
+              <input type="text" className="w-full rounded border px-3 py-2" value={signupData.nickname} onChange={(e) => setSignupData({ ...signupData, nickname: e.target.value })} required />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">이메일</label>
+              <input type="email" className="w-full rounded border px-3 py-2" value={signupData.email} onChange={(e) => setSignupData({ ...signupData, email: e.target.value })} required />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">비밀번호</label>
+              <input type="password" className="w-full rounded border px-3 py-2" value={signupData.password} onChange={(e) => setSignupData({ ...signupData, password: e.target.value })} required />
+            </div>
+            <button type="submit" className="w-full rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700">회원가입</button>
           </form>
         )}
+
+        {message && (
+          <div className={`mt-4 text-center text-sm ${messageType === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+            {message}
+          </div>
+        )}
       </div>
-      
-      {message && (
-        <div className={`text-sm ${messageType === 'error' ? 'text-red-600' : 'text-green-600'}`}>
-          {message}
-        </div>
-      )}
     </div>
   )
 }

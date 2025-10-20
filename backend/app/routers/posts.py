@@ -42,6 +42,21 @@ async def get_post(post_id: str):
         raise HTTPException(404, "post not found")
     return doc
 
+
+@router.post("/{post_id}/view")
+async def increment_post_view(post_id: str):
+    # 잘못된 ObjectId 문자열로 인한 500 방지
+    try:
+        _ = PydanticObjectId(post_id)
+    except Exception:
+        raise HTTPException(400, "invalid post id")
+    doc = await Post.get(post_id)
+    if not doc:
+        raise HTTPException(404, "post not found")
+    new_views = (doc.views or 0) + 1
+    await doc.set({"views": new_views})
+    return {"ok": True, "views": new_views}
+
 @router.patch("/{post_id}", response_model=Post)
 async def update_post(post_id: str, payload: PostUpdate, current_user: User = Depends(get_current_user)):
     try:

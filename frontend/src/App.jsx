@@ -3,6 +3,7 @@ import AuthForm from './components/AuthForm'
 import PostBoard from './components/PostBoard'
 import PostWrite from './components/PostWrite'
 import PostDetail from './components/PostDetail'
+import Header from './components/Header'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'))
@@ -56,7 +57,12 @@ function App() {
     page = <PostBoard user={user} token={token} onLogout={handleLogout} />
   }
 
-  return <div className="min-h-screen bg-gray-50">{page}</div>
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header user={user} onLogout={handleLogout} />
+      <main className="mx-auto max-w-4xl px-4 sm:px-6 py-6">{page}</main>
+    </div>
+  )
 }
 
 export default App

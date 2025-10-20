@@ -91,12 +91,17 @@ npm run dev
 
 - POST `/api/v1/posts/` (Bearer)
   - req: `{ title, body }`
-  - res: `Post` (필드: id, title, body, author_id, author_nickname, created_at ...)
+  - res: `Post` (필드: id, title, body, author_id, author_nickname, created_at, views, comment_count)
 - GET `/api/v1/posts/`
   - query: `page`(기본 1), `limit`(기본 10, 최대 100)
   - res: `{ items: Post[], total: number, page: number, limit: number }`
 - GET `/api/v1/posts/{id}`
+
   - res: `Post`
+
+  - POST `/api/v1/posts/{id}/view`
+    - res: `{ ok: true, views: number }` (조회수 +1)
+
 - PATCH `/api/v1/posts/{id}` (Bearer, 작성자만)
   - req: `{ title?, body? }`
   - res: `Post`
@@ -117,52 +122,43 @@ npm run dev
 
 - 게시글/댓글 수정·삭제는 작성자만 가능(백엔드에서 토큰의 사용자 id와 문서의 author_id 비교)
 
-## 구(Old) 데이터 → 신(New) 스키마 마이그레이션
+## 데이터베이스 스키마
 
-이전 사용자 문서에 `nickname`이 없거나, 기존 글/댓글에 `author_nickname`이 비어 있다면 아래를 순서대로 수행하세요. (mongosh)
+MongoDB 컬렉션과 주요 필드입니다. 타입은 일반적 사용 기준이며, ObjectId는 문자열로 직렬화되어 API로 반환됩니다.
 
-```javascript
-// 1) 사용자 닉네임 초기화 (nickname 없거나 공백 → username 값으로 채우기)
-db.users.updateMany(
-  { $or: [{ nickname: { $exists: false } }, { nickname: "" }] },
-  [{ $set: { nickname: "$username" } }]
-);
+1. users
 
-// 2) 글/댓글의 author_nickname 백필
-const users = db.users.find({}, { _id: 1, nickname: 1 }).toArray();
-users.forEach((u) => {
-  const uid =
-    (u._id.toHexString && u._id.toHexString()) || u._id.str || String(u._id);
-  db.posts.updateMany(
-    {
-      author_id: uid,
-      $or: [{ author_nickname: { $exists: false } }, { author_nickname: "" }],
-    },
-    { $set: { author_nickname: u.nickname } }
-  );
-  db.comments.updateMany(
-    {
-      author_id: uid,
-      $or: [{ author_nickname: { $exists: false } }, { author_nickname: "" }],
-    },
-    { $set: { author_nickname: u.nickname } }
-  );
-});
-```
+- \_id: ObjectId (문자열로 응답 시 id)
+- username: string (고유)
+- email: string (고유, EmailStr)
+- hashed_password: string (bcrypt 해시)
+- nickname: string (표시용 이름)
 
-선택(권장): 닉네임 유니크 인덱스 생성 전에 중복 여부를 확인하세요.
+2. posts
 
-```javascript
-db.users
-  .aggregate([
-    { $group: { _id: "$nickname", count: { $sum: 1 } } },
-    { $match: { count: { $gt: 1 } } },
-  ])
-  .toArray();
+- \_id: ObjectId (문자열로 응답 시 id)
+- title: string
+- body: string
+- author_id: string (users.\_id)
+- author_nickname: string
+- created_at: datetime (UTC)
+- views: number (기본 0)
+- comment_count: number (기본 0)
+- location?: { type: "Point", coordinates: [lng, lat] }
 
-// 중복 없음 확인 후
-db.users.createIndex({ nickname: 1 }, { unique: true });
-```
+3. comments
+
+- \_id: ObjectId (문자열로 응답 시 id)
+- post_id: string (posts.\_id)
+- content: string
+- author_id: string (users.\_id)
+- author_nickname: string
+- created_at: datetime (UTC)
+
+인덱스/기타
+
+- posts.location: 2dsphere (지오쿼리용)
+- username, email은 고유(unique) 조건을 위해 애플리케이션 레벨에서 중복 체크
 
 ## 자주 만나는 이슈
 

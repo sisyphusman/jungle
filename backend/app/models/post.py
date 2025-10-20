@@ -15,6 +15,8 @@ class Post(Document):
     author_nickname: Optional[str] = None
     location: Optional[GeoPoint] = None  # 지도 마커 저장 시 사용
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    views: int = 0
+    comment_count: int = 0
 
     class Settings:
         name = "posts"  # 컬렉션명

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 
 from app.models.comment import Comment, CommentCreate
+from app.models.post import Post
 from app.models.user import User
 from app.routers.auth import get_current_user
 from beanie import PydanticObjectId
@@ -23,6 +24,13 @@ async def create_comment(post_id: str, payload: CommentCreate, current_user: Use
         author_nickname=current_user.nickname,
     )
     await doc.insert()
+    # 해당 게시글 댓글 수 증가
+    try:
+        post = await Post.get(post_id)
+        if post:
+            await post.set({"comment_count": (post.comment_count or 0) + 1})
+    except Exception:
+        pass
     return doc
 
 
@@ -38,4 +46,12 @@ async def delete_comment(comment_id: str, current_user: User = Depends(get_curre
     if doc.author_id != str(current_user.id):
         raise HTTPException(403, "Not authorized to delete this comment")
     await doc.delete()
+    # 해당 게시글 댓글 수 감소
+    try:
+        if doc.post_id:
+            post = await Post.get(doc.post_id)
+            if post and (post.comment_count or 0) > 0:
+                await post.set({"comment_count": (post.comment_count or 0) - 1})
+    except Exception:
+        pass
     return {"ok": True}
