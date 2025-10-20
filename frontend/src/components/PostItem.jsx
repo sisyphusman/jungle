@@ -12,7 +12,7 @@ function PostItem({ post, currentUserId }) {
           ) : (
             <span className="font-semibold text-lg">{post.title}</span>
           )}
-          <div className="text-sm text-gray-700 whitespace-pre-line mt-1 line-clamp-3">{post.body}</div>
+          <div className="text-[15px] text-gray-700 whitespace-pre-line mt-1 line-clamp-3 leading-relaxed">{post.body}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
             {(post.author_nickname || post.author_id) && (
               <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5">작성자: {post.author_nickname || post.author_id}</span>

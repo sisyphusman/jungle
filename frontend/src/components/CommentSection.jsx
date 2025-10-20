@@ -84,17 +84,25 @@ export default function CommentSection({ postId, token, user, onCountChange }) {
       <h3 className="font-semibold mb-2">댓글</h3>
       {loading && <div>로딩 중...</div>}
       {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
-      <form onSubmit={handleSubmit} className="flex gap-2 mb-3">
-        <input
-          className="flex-1 border rounded px-2 py-1"
+      <form onSubmit={handleSubmit} className="mb-3 space-y-2">
+        <label htmlFor="comment-textarea" className="sr-only">댓글</label>
+        <textarea
+          id="comment-textarea"
+          className="w-full rounded border px-3 py-2 min-h-24 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="댓글을 입력하세요"
+          rows={4}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           required
         />
-        <button className="bg-blue-600 text-white px-3 py-1 rounded" disabled={loading}>
-          작성
-        </button>
+        <div className="flex items-center justify-end">
+          <button
+            className="inline-flex items-center rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
+          >
+            작성
+          </button>
+        </div>
       </form>
       <ul className="space-y-2">
         {comments.map((c) => (
@@ -111,8 +119,9 @@ export default function CommentSection({ postId, token, user, onCountChange }) {
             {user && user.id === c.author_id && (
               <button
                 onClick={() => handleDelete(c.id)}
-                className="text-red-600 text-xs"
+                className="inline-flex items-center rounded bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading}
+                title="댓글 삭제"
               >
                 삭제
               </button>

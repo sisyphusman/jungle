@@ -24,7 +24,7 @@
 
 - Python 3.11+
 - Node.js 18+
-- 로컬 MongoDB 6+ (또는 Docker)
+- 로컬 MongoDB 6+
 
 ## 백엔드 실행 (Windows PowerShell)
 
@@ -41,12 +41,6 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
   - CORS: 개발용 프론트(5173) 허용
 - 헬스체크: http://localhost:8000/health
 
-## MongoDB (선택: Docker)
-
-```powershell
-docker run -d --name jungle-crud-mongo -p 27017:27017 mongo:6
-```
-
 ## 프론트엔드 실행 (Windows PowerShell)
 
 ```powershell
@@ -57,6 +51,45 @@ npm run dev
 
 - 접속: http://localhost:5173/
 - 라우팅: `#/`(목록), `#/write`(글쓰기), `#/post/:id`(상세)
+
+## 아키텍처 개요
+
+개발 환경에서의 전체 흐름은 다음과 같습니다.
+
+```
+┌─────────────────────────┐        ┌──────────────────────────────┐
+│  Browser (React App)    │  HTTP  │  Vite Dev Server (5173)      │
+│  - Hash Routing (#/...) │ <────> │  - Static Assets             │
+│  - Fetch /api/v1/*      │        │  - Proxy /api -> 8000        │
+└────────────┬────────────┘        └──────────────┬───────────────┘
+             │                                      │
+             │ /api/v1/* (proxy)                    │
+             │                                      ▼
+             │                         ┌──────────────────────────┐
+             │                         │ FastAPI (Uvicorn, 8000)  │
+             │                         │ - Routers: auth/posts/   │
+             │                         │   comments                │
+             │                         │ - Beanie ODM              │
+             │                         └───────────┬──────────────┘
+             │                                     │ Motor
+             ▼                                     ▼
+┌─────────────────────────┐          ┌────────────────────────────┐
+│  LocalStorage           │          │ MongoDB (localhost:27017)  │
+│  - token, user          │          │ - db: crud                 │
+└─────────────────────────┘          │ - collections: users/posts │
+                                     │   /comments                │
+                                     └────────────────────────────┘
+```
+
+- 프론트는 Vite 개발 서버를 통해 정적 리소스를 제공하고, `/api/*` 요청은 `vite.config.js`의 proxy 설정으로 FastAPI(8000)로 전달됩니다.
+- FastAPI는 인증/게시글/댓글 라우터를 제공하고, Beanie를 통해 MongoDB에 접근합니다.
+- 인증 토큰과 사용자 정보는 LocalStorage에 저장되어, 프론트에서 인증이 필요한 요청 시 Authorization 헤더로 전송됩니다.
+
+프로덕션 구성(권장 예)
+
+- 프론트: `npm run build` 결과를 Nginx 등으로 정적 호스팅
+- 백엔드: Uvicorn(혹은 Gunicorn+Uvicorn workers) 뒤 Nginx 리버스 프록시
+- 환경 변수로 비밀 키/DB URL/CORS 원본 제어
 
 ## 프로젝트 구조(요약)
 
@@ -159,45 +192,6 @@ MongoDB 컬렉션과 주요 필드입니다. 타입은 일반적 사용 기준�
 
 - posts.location: 2dsphere (지오쿼리용)
 - username, email은 고유(unique) 조건을 위해 애플리케이션 레벨에서 중복 체크
-
-## 아키텍처 개요
-
-개발 환경에서의 전체 흐름은 다음과 같습니다.
-
-```
-┌─────────────────────────┐        ┌──────────────────────────────┐
-│  Browser (React App)    │  HTTP  │  Vite Dev Server (5173)      │
-│  - Hash Routing (#/...) │ <────> │  - Static Assets             │
-│  - Fetch /api/v1/*      │        │  - Proxy /api -> 8000        │
-└────────────┬────────────┘        └──────────────┬───────────────┘
-             │                                      │
-             │ /api/v1/* (proxy)                    │
-             │                                      ▼
-             │                         ┌──────────────────────────┐
-             │                         │ FastAPI (Uvicorn, 8000)  │
-             │                         │ - Routers: auth/posts/   │
-             │                         │   comments                │
-             │                         │ - Beanie ODM              │
-             │                         └───────────┬──────────────┘
-             │                                     │ Motor
-             ▼                                     ▼
-┌─────────────────────────┐          ┌────────────────────────────┐
-│  LocalStorage           │          │ MongoDB (localhost:27017)  │
-│  - token, user          │          │ - db: crud                 │
-└─────────────────────────┘          │ - collections: users/posts │
-                                     │   /comments                │
-                                     └────────────────────────────┘
-```
-
-- 프론트는 Vite 개발 서버를 통해 정적 리소스를 제공하고, `/api/*` 요청은 `vite.config.js`의 proxy 설정으로 FastAPI(8000)로 전달됩니다.
-- FastAPI는 인증/게시글/댓글 라우터를 제공하고, Beanie를 통해 MongoDB에 접근합니다.
-- 인증 토큰과 사용자 정보는 LocalStorage에 저장되어, 프론트에서 인증이 필요한 요청 시 Authorization 헤더로 전송됩니다.
-
-프로덕션 구성(권장 예)
-
-- 프론트: `npm run build` 결과를 Nginx 등으로 정적 호스팅
-- 백엔드: Uvicorn(혹은 Gunicorn+Uvicorn workers) 뒤 Nginx 리버스 프록시
-- 환경 변수로 비밀 키/DB URL/CORS 원본 제어
 
 ## 더 알아야 할 것들
 

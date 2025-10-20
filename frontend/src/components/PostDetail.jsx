@@ -99,7 +99,7 @@ export default function PostDetail({ postId, token, user }) {
               <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5">조회 {post.views ?? 0}</span>
               <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5">댓글 {post.comment_count ?? 0}</span>
             </div>
-            <div className="mt-4 whitespace-pre-line text-gray-800">{post.body}</div>
+            <div className="mt-4 whitespace-pre-line text-gray-800 text-[17px] sm:text-lg leading-relaxed">{post.body}</div>
           </article>
         </>
       )}
