@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "cstdlib": "c",
+        "type_traits": "c",
+        "random": "c"
+    }
+}
